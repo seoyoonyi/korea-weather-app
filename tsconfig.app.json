@@ -11,6 +11,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "moduleDetection": "force",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
