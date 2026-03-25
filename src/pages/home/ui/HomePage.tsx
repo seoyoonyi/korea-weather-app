@@ -5,9 +5,17 @@ import type { DistrictNode } from '@/entities/district/model/types'
 import { searchDistricts } from '@/entities/district/model/searchDistricts'
 import { useWeatherForecastQuery } from '@/entities/weather/api/useWeatherForecastQuery'
 import { getWeatherConditionLabel } from '@/entities/weather/model/getWeatherConditionLabel'
-import type { HourlyWeatherForecast } from '@/entities/weather/model/types'
+import { useFavoriteWeather } from '@/features/favorite/api/useFavoriteWeather'
+import { FavoriteCards } from '@/features/favorite/ui/FavoriteCards'
+import {
+  FAVORITES_LIMIT,
+  useFavorites,
+} from '@/features/favorite/model/FavoritesProvider'
 import { useCurrentLocation } from '@/features/current-location/model/useCurrentLocation'
 import { DEFAULT_WEATHER_TIMEZONE } from '@/shared/config/api'
+import { formatDateTime, formatHour, getTodayHourlyTemperatures } from '@/shared/lib/weather'
+import { InfoRow } from '@/shared/ui/InfoRow'
+import { MetricCard } from '@/shared/ui/MetricCard'
 
 const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_WEATHER_TIMEZONE
 
@@ -16,8 +24,17 @@ export function HomePage() {
   const [selectedDistrict, setSelectedDistrict] = useState<DistrictNode | null>(null)
   const deferredSearchKeyword = useDeferredValue(searchKeyword.trim())
 
+  const {
+    favorites,
+    addFavorite,
+    removeFavorite,
+    updateFavoriteAlias,
+    findFavoriteByDistrict,
+  } = useFavorites()
   const currentLocation = useCurrentLocation()
   const { data: districtTree, isLoading: isDistrictTreeLoading } = useDistrictTree()
+  const favoriteWeatherQueries = useFavoriteWeather(favorites)
+
   const isSearchSelectionLocked =
     selectedDistrict !== null &&
     normalizeSearchValue(searchKeyword) === normalizeSearchValue(selectedDistrict.fullName)
@@ -46,6 +63,10 @@ export function HomePage() {
     },
   )
 
+  const selectedFavorite = selectedDistrict
+    ? findFavoriteByDistrict(selectedDistrict.fullName)
+    : undefined
+  const isFavoriteLimitReached = favorites.length >= FAVORITES_LIMIT && !selectedFavorite
   const isSearchingPlace = Boolean(selectedDistrict)
   const activeWeatherQuery = isSearchingPlace ? selectedDistrictWeatherQuery : currentWeatherQuery
   const activeWeather = activeWeatherQuery.data
@@ -76,6 +97,29 @@ export function HomePage() {
     selectedDistrictCoordinatesError: selectedDistrictCoordinates.error,
     isResolvingSelectedDistrict: selectedDistrictCoordinates.isLoading,
   })
+  const favoriteActionMessage = getFavoriteActionMessage({
+    selectedDistrict,
+    selectedFavorite,
+    isFavoriteLimitReached,
+    selectedDistrictCoordinates: selectedDistrictCoordinates.data,
+    selectedDistrictCoordinatesLoading: selectedDistrictCoordinates.isLoading,
+  })
+
+  const handleAddFavorite = () => {
+    if (!selectedDistrict || !selectedDistrictCoordinates.data) {
+      return
+    }
+
+    addFavorite({
+      districtFullName: selectedDistrict.fullName,
+      districtName: selectedDistrict.name,
+      alias: selectedDistrict.name,
+      label: selectedDistrictCoordinates.data.label,
+      latitude: selectedDistrictCoordinates.data.latitude,
+      longitude: selectedDistrictCoordinates.data.longitude,
+      timezone: selectedDistrictCoordinates.data.timezone ?? browserTimeZone,
+    })
+  }
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.18),_transparent_32%),linear-gradient(180deg,_#f8fafc_0%,_#e0f2fe_100%)] px-6 py-10 text-slate-950 lg:px-10">
@@ -90,14 +134,14 @@ export function HomePage() {
                 대한민국 행정구역으로 날씨 검색
               </h1>
               <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-                시, 군, 구, 동 단위 이름으로 검색하면 매칭되는 대한민국 행정구역 목록을 보여주고,
+                시, 군, 구, 동 단위 이름으로 검색하면 매칭되는 행정구역 목록을 보여주고,
                 선택한 장소의 날씨를 조회합니다.
               </p>
             </div>
             <div className="rounded-3xl bg-slate-950 px-5 py-4 text-slate-50">
-              <p className="text-sm text-slate-300">행정구역 노드</p>
+              <p className="text-sm text-slate-300">즐겨찾기</p>
               <p className="mt-2 text-lg font-medium">
-                {districtTree ? districtTree.stats.totalCount.toLocaleString() : '로딩 중'}
+                {favorites.length} / {FAVORITES_LIMIT}
               </p>
             </div>
           </div>
@@ -172,7 +216,53 @@ export function HomePage() {
                   value={selectedDistrict ? selectedDistrict.fullName.replaceAll('-', ' > ') : '선택된 장소 없음'}
                 />
               </div>
+
+              <div className="mt-6">
+                {selectedFavorite ? (
+                  <button
+                    className="w-full rounded-2xl border border-red-200 px-4 py-3 text-sm font-medium text-red-700 transition hover:bg-red-50"
+                    onClick={() => removeFavorite(selectedFavorite.id)}
+                  >
+                    즐겨찾기에서 삭제
+                  </button>
+                ) : (
+                  <button
+                    className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-950 transition hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-300"
+                    disabled={
+                      !selectedDistrictCoordinates.data ||
+                      selectedDistrictCoordinates.isLoading ||
+                      isFavoriteLimitReached
+                    }
+                    onClick={handleAddFavorite}
+                  >
+                    즐겨찾기에 추가
+                  </button>
+                )}
+
+                {favoriteActionMessage ? (
+                  <p className="mt-3 text-sm text-slate-300">{favoriteActionMessage}</p>
+                ) : null}
+              </div>
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/70 bg-white/85 p-8 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.22em] text-sky-700">Favorites</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">즐겨찾기 장소</h2>
+            </div>
+            <p className="text-sm text-slate-500">카드를 클릭하면 상세 페이지로 이동합니다.</p>
+          </div>
+
+          <div className="mt-6">
+            <FavoriteCards
+              favorites={favorites}
+              weatherQueries={favoriteWeatherQueries}
+              onRemoveFavorite={removeFavorite}
+              onUpdateFavoriteAlias={updateFavoriteAlias}
+            />
           </div>
         </section>
 
@@ -226,7 +316,9 @@ export function HomePage() {
               <MetricCard
                 label="당일 최고"
                 value={today ? `${Math.round(today.temperatureMax)}°` : '--'}
-                helper={activeWeather ? `체감 ${Math.round(activeWeather.current.apparentTemperature)}°` : '데이터 대기 중'}
+                helper={
+                  activeWeather ? `체감 ${Math.round(activeWeather.current.apparentTemperature)}°` : '데이터 대기 중'
+                }
               />
             </div>
           </div>
@@ -291,41 +383,6 @@ export function HomePage() {
   )
 }
 
-function MetricCard({
-  label,
-  value,
-  helper,
-}: {
-  label: string
-  value: string
-  helper: string
-}) {
-  return (
-    <article className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-5">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-3 text-4xl font-semibold tracking-tight text-slate-950">{value}</p>
-      <p className="mt-2 text-sm text-slate-600">{helper}</p>
-    </article>
-  )
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
-      <p className="text-sm text-slate-400">{label}</p>
-      <p className="mt-2 text-base font-medium text-white">{value}</p>
-    </div>
-  )
-}
-
-function getTodayHourlyTemperatures(hourly: HourlyWeatherForecast[], date?: string) {
-  if (!date) {
-    return hourly.slice(0, 8)
-  }
-
-  return hourly.filter((item) => item.time.startsWith(date)).slice(0, 24)
-}
-
 function getActiveLocationLabel(
   isSearchingPlace: boolean,
   selectedDistrict: DistrictNode | null,
@@ -377,6 +434,42 @@ function getSearchStatusMessage({
   }
 
   return null
+}
+
+function getFavoriteActionMessage({
+  selectedDistrict,
+  selectedFavorite,
+  isFavoriteLimitReached,
+  selectedDistrictCoordinates,
+  selectedDistrictCoordinatesLoading,
+}: {
+  selectedDistrict: DistrictNode | null
+  selectedFavorite: { id: string } | undefined
+  isFavoriteLimitReached: boolean
+  selectedDistrictCoordinates: { latitude: number; longitude: number } | null | undefined
+  selectedDistrictCoordinatesLoading: boolean
+}) {
+  if (!selectedDistrict) {
+    return '장소를 선택하면 즐겨찾기에 추가할 수 있습니다.'
+  }
+
+  if (selectedFavorite) {
+    return '이미 즐겨찾기에 추가된 장소입니다.'
+  }
+
+  if (selectedDistrictCoordinatesLoading) {
+    return '즐겨찾기 추가를 위해 장소 좌표를 확인하는 중입니다.'
+  }
+
+  if (!selectedDistrictCoordinates) {
+    return '해당 장소의 정보가 제공되지 않아 즐겨찾기에 추가할 수 없습니다.'
+  }
+
+  if (isFavoriteLimitReached) {
+    return '즐겨찾기는 최대 6개까지 추가할 수 있습니다.'
+  }
+
+  return '선택한 장소를 즐겨찾기에 추가할 수 있습니다.'
 }
 
 function getWeatherStatusLabel({
@@ -449,24 +542,4 @@ function renderWeatherMessage({
 
 function normalizeSearchValue(value: string) {
   return value.replaceAll(/\s|-/g, '').toLowerCase()
-}
-
-function formatHour(value: string, timeZone: string) {
-  return new Intl.DateTimeFormat('ko-KR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone,
-  }).format(new Date(value))
-}
-
-function formatDateTime(value: string, timeZone: string) {
-  return new Intl.DateTimeFormat('ko-KR', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone,
-  }).format(new Date(value))
 }

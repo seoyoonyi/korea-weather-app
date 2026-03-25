@@ -1,5 +1,5 @@
 import type { DistrictNode } from '@/entities/district/model/types'
-import { OPEN_METEO_GEOCODING_API_URL } from '@/shared/config/api'
+import { NOMINATIM_SEARCH_API_URL, OPEN_METEO_GEOCODING_API_URL } from '@/shared/config/api'
 
 type GeocodeDistrictOptions = {
   signal?: AbortSignal
@@ -28,6 +28,26 @@ type OpenMeteoGeocodingResult = {
   admin4?: string
 }
 
+type NominatimSearchResult = {
+  lat: string
+  lon: string
+  display_name: string
+  address?: {
+    state?: string
+    county?: string
+    city?: string
+    city_district?: string
+    district?: string
+    borough?: string
+    suburb?: string
+    town?: string
+    village?: string
+    hamlet?: string
+    quarter?: string
+    neighbourhood?: string
+  }
+}
+
 export async function geocodeDistrict(
   district: DistrictNode,
   options: GeocodeDistrictOptions = {},
@@ -48,6 +68,12 @@ export async function geocodeDistrict(
         timezone: bestMatch.timezone ?? null,
       }
     }
+  }
+
+  const nominatimMatch = await findDistrictWithNominatim(district, options.signal)
+
+  if (nominatimMatch) {
+    return nominatimMatch
   }
 
   return null
@@ -142,4 +168,146 @@ function formatGeocodedLabel(result: OpenMeteoGeocodingResult) {
 
 function normalizeValue(value: string) {
   return value.replaceAll(/\s|-/g, '').toLowerCase()
+}
+
+async function findDistrictWithNominatim(district: DistrictNode, signal?: AbortSignal) {
+  const searchTerms = Array.from(
+    new Set([
+      `${district.fullName.replaceAll('-', ', ')}, 대한민국`,
+      `${district.fullName.replaceAll('-', ' ')}`,
+      district.name,
+    ]),
+  )
+
+  for (const searchTerm of searchTerms) {
+    const results = await fetchNominatimResults(searchTerm, signal)
+    const bestMatch = pickBestNominatimMatch(district, results)
+
+    if (bestMatch) {
+      return {
+        latitude: Number(bestMatch.lat),
+        longitude: Number(bestMatch.lon),
+        label: formatNominatimLabel(bestMatch),
+        timezone: null,
+      }
+    }
+  }
+
+  return null
+}
+
+async function fetchNominatimResults(searchTerm: string, signal?: AbortSignal) {
+  const requestUrl = new URL(NOMINATIM_SEARCH_API_URL)
+
+  requestUrl.searchParams.set('q', searchTerm)
+  requestUrl.searchParams.set('format', 'jsonv2')
+  requestUrl.searchParams.set('limit', '10')
+  requestUrl.searchParams.set('countrycodes', 'kr')
+  requestUrl.searchParams.set('addressdetails', '1')
+  requestUrl.searchParams.set('accept-language', 'ko')
+
+  const response = await fetch(requestUrl, {
+    headers: {
+      Accept: 'application/json',
+    },
+    signal,
+  })
+
+  if (!response.ok) {
+    return []
+  }
+
+  return (await response.json()) as NominatimSearchResult[]
+}
+
+function pickBestNominatimMatch(district: DistrictNode, results: NominatimSearchResult[]) {
+  const rankedResults = results
+    .map((result) => ({
+      result,
+      score: getNominatimScore(district, result),
+    }))
+    .filter((item) => item.score >= getMinimumNominatimScore(district))
+    .sort((left, right) => right.score - left.score)
+
+  return rankedResults[0]?.result ?? null
+}
+
+function getNominatimScore(district: DistrictNode, result: NominatimSearchResult) {
+  const selectedSegments = district.fullName.split('-').map(normalizeValue)
+  const lastSegment = selectedSegments.at(-1) ?? ''
+  const address = result.address
+  const candidateSegments = Array.from(
+    new Set(
+      [
+        result.display_name,
+        address?.state,
+        address?.county,
+        address?.city,
+        address?.city_district,
+        address?.district,
+        address?.borough,
+        address?.suburb,
+        address?.town,
+        address?.village,
+        address?.hamlet,
+        address?.quarter,
+        address?.neighbourhood,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .map(normalizeValue),
+    ),
+  )
+
+  let score = 0
+
+  if (candidateSegments.some((candidateSegment) => candidateSegment === lastSegment)) {
+    score += 45
+  }
+
+  for (const segment of selectedSegments) {
+    if (candidateSegments.includes(segment)) {
+      score += 12
+      continue
+    }
+
+    if (candidateSegments.some((candidateSegment) => candidateSegment.includes(segment))) {
+      score += 5
+    }
+  }
+
+  return score
+}
+
+function getMinimumNominatimScore(district: DistrictNode) {
+  if (district.depth === 1) {
+    return 30
+  }
+
+  if (district.depth === 2) {
+    return 38
+  }
+
+  return 45
+}
+
+function formatNominatimLabel(result: NominatimSearchResult) {
+  const address = result.address
+  const labelParts = Array.from(
+    new Set(
+      [
+        address?.neighbourhood,
+        address?.quarter,
+        address?.suburb,
+        address?.borough,
+        address?.district,
+        address?.city_district,
+        address?.town,
+        address?.city,
+        address?.county,
+        address?.state,
+      ].filter((value): value is string => Boolean(value)),
+    ),
+  )
+
+  return labelParts.length > 0 ? labelParts.join(' · ') : result.display_name
 }
