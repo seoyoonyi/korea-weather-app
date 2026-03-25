@@ -1,0 +1,7 @@
+export const OPEN_METEO_FORECAST_API_URL = 'https://api.open-meteo.com/v1/forecast'
+export const BIG_DATA_CLOUD_REVERSE_GEOCODE_API_URL =
+  'https://api.bigdatacloud.net/data/reverse-geocode-client'
+
+export const DEFAULT_WEATHER_TIMEZONE = 'Asia/Seoul'
+
+export const DEFAULT_FORECAST_DAYS = 7
