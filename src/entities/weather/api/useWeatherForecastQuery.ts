@@ -3,6 +3,10 @@ import { DEFAULT_FORECAST_DAYS, DEFAULT_WEATHER_TIMEZONE } from '@/shared/config
 import type { GetWeatherForecastParams } from '@/entities/weather/model/types'
 import { getWeatherForecast } from '@/entities/weather/api/weatherApiClient'
 
+type UseWeatherForecastQueryOptions = {
+  enabled?: boolean
+}
+
 export function weatherForecastQueryOptions(params: GetWeatherForecastParams) {
   return queryOptions({
     queryKey: [
@@ -16,6 +20,12 @@ export function weatherForecastQueryOptions(params: GetWeatherForecastParams) {
   })
 }
 
-export function useWeatherForecastQuery(params: GetWeatherForecastParams) {
-  return useQuery(weatherForecastQueryOptions(params))
+export function useWeatherForecastQuery(
+  params: GetWeatherForecastParams,
+  options: UseWeatherForecastQueryOptions = {},
+) {
+  return useQuery({
+    ...weatherForecastQueryOptions(params),
+    enabled: options.enabled,
+  })
 }
