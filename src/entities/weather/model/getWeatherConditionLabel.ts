@@ -13,6 +13,7 @@ const WEATHER_CONDITION_LABELS: Record<number, string> = {
   61: '약한 비',
   63: '보통 비',
   65: '강한 비',
+  68: '진눈깨비',
   66: '약한 어는 비',
   67: '강한 어는 비',
   71: '약한 눈',

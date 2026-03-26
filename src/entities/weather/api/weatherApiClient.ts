@@ -1,7 +1,7 @@
 import {
-  DEFAULT_FORECAST_DAYS,
   DEFAULT_WEATHER_TIMEZONE,
-  OPEN_METEO_FORECAST_API_URL,
+  KMA_ULTRA_SHORT_NOWCAST_API_URL,
+  KMA_VILLAGE_FORECAST_API_URL,
 } from '@/shared/config/api'
 import type {
   DailyWeatherForecast,
@@ -9,53 +9,73 @@ import type {
   HourlyWeatherForecast,
   WeatherForecast,
 } from '@/entities/weather/model/types'
+import { toKmaGrid } from '@/shared/lib/kmaGrid'
 
-const CURRENT_WEATHER_FIELDS = [
-  'temperature_2m',
-  'apparent_temperature',
-  'is_day',
-  'weather_code',
-  'wind_speed_10m',
-] as const
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000
+const KMA_TIMEZONE_ABBREVIATION = 'KST'
+const KMA_SUCCESS_CODE = '00'
+const KMA_VILLAGE_BASE_HOURS = [2, 5, 8, 11, 14, 17, 20, 23]
 
-const DAILY_WEATHER_FIELDS = [
-  'weather_code',
-  'temperature_2m_max',
-  'temperature_2m_min',
-  'precipitation_probability_max',
-] as const
+type KmaGridCoordinates = {
+  nx: number
+  ny: number
+}
 
-const HOURLY_WEATHER_FIELDS = ['temperature_2m'] as const
-
-type OpenMeteoForecastResponse = {
-  latitude: number
-  longitude: number
-  timezone: string
-  timezone_abbreviation: string
-  current: {
-    time: string
-    temperature_2m: number
-    apparent_temperature: number
-    is_day: number
-    weather_code: number
-    wind_speed_10m: number
-  }
-  daily: {
-    time: string[]
-    weather_code: number[]
-    temperature_2m_max: number[]
-    temperature_2m_min: number[]
-    precipitation_probability_max: number[]
-  }
-  hourly: {
-    time: string[]
-    temperature_2m: number[]
+type KmaApiResponse<TItem> = {
+  response?: {
+    header?: {
+      resultCode?: string
+      resultMsg?: string
+    }
+    body?: {
+      items?: {
+        item?: TItem[] | TItem
+      }
+    }
   }
 }
 
-type ApiErrorResponse = {
-  error?: boolean
-  reason?: string
+type KmaNowcastItem = {
+  baseDate: string
+  baseTime: string
+  category: string
+  nx: number
+  ny: number
+  obsrValue: string
+}
+
+type KmaVillageForecastItem = {
+  baseDate: string
+  baseTime: string
+  category: string
+  fcstDate: string
+  fcstTime: string
+  fcstValue: string
+  nx: number
+  ny: number
+}
+
+type CurrentObservation = {
+  time: string
+  temperature: number | null
+  windSpeed: number | null
+  precipitationType: number | null
+}
+
+type ForecastPoint = {
+  time: string
+  temperature: number | null
+  precipitationProbability: number | null
+  sky: number | null
+  precipitationType: number | null
+  lightning: number | null
+  windSpeed: number | null
+}
+
+type ParsedVillageForecast = {
+  daily: DailyWeatherForecast[]
+  hourly: HourlyWeatherForecast[]
+  points: ForecastPoint[]
 }
 
 type GetWeatherForecastOptions = {
@@ -68,75 +88,307 @@ export async function getWeatherForecast(
 ): Promise<WeatherForecast> {
   validateCoordinates(params)
 
-  const requestUrl = new URL(OPEN_METEO_FORECAST_API_URL)
+  const serviceKey = getKmaServiceKey()
+  const grid = toKmaGrid(params.latitude, params.longitude)
+  const now = new Date()
+
+  const [nowcastItems, villageForecastItems] = await Promise.all([
+    fetchKmaItems<KmaNowcastItem>({
+      endpoint: KMA_ULTRA_SHORT_NOWCAST_API_URL,
+      grid,
+      requestDateTime: getUltraShortNowcastBaseDateTime(now),
+      serviceKey,
+      signal: options.signal,
+    }),
+    fetchKmaItems<KmaVillageForecastItem>({
+      endpoint: KMA_VILLAGE_FORECAST_API_URL,
+      grid,
+      requestDateTime: getVillageForecastBaseDateTime(now),
+      serviceKey,
+      signal: options.signal,
+    }),
+  ])
+
+  const currentObservation = parseCurrentObservation(nowcastItems)
+  const parsedVillageForecast = parseVillageForecast(villageForecastItems, now)
+  const currentForecastPoint = getNearestForecastPoint(
+    parsedVillageForecast.points,
+    currentObservation.time,
+  )
+
+  const currentTemperature =
+    currentObservation.temperature ?? currentForecastPoint?.temperature ?? null
+  const currentWindSpeed =
+    currentObservation.windSpeed ?? currentForecastPoint?.windSpeed ?? null
+
+  if (currentTemperature === null) {
+    throw new Error('기상청 예보에서 현재 기온을 찾지 못했습니다.')
+  }
+
+  const currentTime =
+    currentObservation.time ||
+    currentForecastPoint?.time ||
+    createOffsetDateTime(getKstCompactDate(toKstDate(now)), getKstHourTime(now))
+  const currentWeatherCode = deriveWeatherCode({
+    precipitationType:
+      currentObservation.precipitationType ?? currentForecastPoint?.precipitationType ?? null,
+    sky: currentForecastPoint?.sky ?? null,
+    lightning: currentForecastPoint?.lightning ?? null,
+  })
+  const todayForecast =
+    parsedVillageForecast.daily[0] ?? buildFallbackDailyForecast(parsedVillageForecast.hourly, now)
   const timezone = params.timezone ?? DEFAULT_WEATHER_TIMEZONE
-  const forecastDays = normalizeForecastDays(params.forecastDays)
 
-  requestUrl.searchParams.set('latitude', String(params.latitude))
-  requestUrl.searchParams.set('longitude', String(params.longitude))
-  requestUrl.searchParams.set('timezone', timezone)
-  requestUrl.searchParams.set('forecast_days', String(forecastDays))
-  requestUrl.searchParams.set('current', CURRENT_WEATHER_FIELDS.join(','))
-  requestUrl.searchParams.set('daily', DAILY_WEATHER_FIELDS.join(','))
-  requestUrl.searchParams.set('hourly', HOURLY_WEATHER_FIELDS.join(','))
+  return {
+    location: {
+      latitude: params.latitude,
+      longitude: params.longitude,
+      timezone,
+      timezoneAbbreviation: KMA_TIMEZONE_ABBREVIATION,
+    },
+    current: {
+      time: currentTime,
+      temperature: currentTemperature,
+      apparentTemperature: currentTemperature,
+      isDay: isDaytime(currentTime),
+      weatherCode: currentWeatherCode,
+      windSpeed: currentWindSpeed === null ? 0 : toKilometersPerHour(currentWindSpeed),
+    },
+    daily: todayForecast ? [todayForecast] : [],
+    hourly: parsedVillageForecast.hourly,
+  }
+}
 
+async function fetchKmaItems<TItem>({
+  endpoint,
+  grid,
+  requestDateTime,
+  serviceKey,
+  signal,
+}: {
+  endpoint: string
+  grid: KmaGridCoordinates
+  requestDateTime: Date
+  serviceKey: string
+  signal?: AbortSignal
+}) {
+  const requestUrl = createKmaRequestUrl(endpoint, {
+    serviceKey,
+    base_date: getKstCompactDate(requestDateTime),
+    base_time: getKstCompactTime(requestDateTime),
+    nx: String(grid.nx),
+    ny: String(grid.ny),
+  })
   const response = await fetch(requestUrl, {
     headers: {
       Accept: 'application/json',
     },
-    signal: options.signal,
+    signal,
   })
 
   if (!response.ok) {
-    const errorBody = (await readJsonSafely<ApiErrorResponse>(response)) ?? {}
-    throw new Error(errorBody.reason ?? '날씨 데이터를 불러오지 못했습니다.')
+    const errorMessage = await readKmaErrorMessage(response)
+    throw new Error(errorMessage ?? '기상청 날씨 정보를 불러오지 못했습니다.')
   }
 
-  const rawForecast = (await response.json()) as OpenMeteoForecastResponse
+  const body = (await response.json()) as KmaApiResponse<TItem>
+  const resultCode = body.response?.header?.resultCode
+
+  if (resultCode !== KMA_SUCCESS_CODE) {
+    throw new Error(body.response?.header?.resultMsg ?? '기상청 응답을 해석하지 못했습니다.')
+  }
+
+  const items = body.response?.body?.items?.item
+
+  if (!items) {
+    return []
+  }
+
+  return Array.isArray(items) ? items : [items]
+}
+
+function parseCurrentObservation(items: KmaNowcastItem[]): CurrentObservation {
+  const categories = new Map(items.map((item) => [item.category, item]))
+  const sampleItem = items[0]
 
   return {
-    location: {
-      latitude: rawForecast.latitude,
-      longitude: rawForecast.longitude,
-      timezone: rawForecast.timezone,
-      timezoneAbbreviation: rawForecast.timezone_abbreviation,
-    },
-    current: {
-      time: rawForecast.current.time,
-      temperature: rawForecast.current.temperature_2m,
-      apparentTemperature: rawForecast.current.apparent_temperature,
-      isDay: rawForecast.current.is_day === 1,
-      weatherCode: rawForecast.current.weather_code,
-      windSpeed: rawForecast.current.wind_speed_10m,
-    },
-    daily: mapDailyForecast(rawForecast.daily),
-    hourly: mapHourlyForecast(rawForecast.hourly),
+    time: sampleItem ? createOffsetDateTime(sampleItem.baseDate, sampleItem.baseTime) : '',
+    temperature: getNumericKmaValue(categories.get('T1H')?.obsrValue),
+    windSpeed: getNumericKmaValue(categories.get('WSD')?.obsrValue),
+    precipitationType: getNumericKmaValue(categories.get('PTY')?.obsrValue),
   }
 }
 
-function mapDailyForecast(daily: OpenMeteoForecastResponse['daily']): DailyWeatherForecast[] {
-  return daily.time.map((date, index) => ({
-    date,
-    weatherCode: daily.weather_code[index] ?? 0,
-    temperatureMax: daily.temperature_2m_max[index] ?? 0,
-    temperatureMin: daily.temperature_2m_min[index] ?? 0,
-    precipitationProbabilityMax: daily.precipitation_probability_max[index] ?? 0,
-  }))
-}
+function parseVillageForecast(items: KmaVillageForecastItem[], now: Date): ParsedVillageForecast {
+  const availableDates = Array.from(
+    new Set(
+      items
+        .map((item) => item.fcstDate)
+        .filter((fcstDate): fcstDate is string => fcstDate.length === 8),
+    ),
+  ).sort()
+  const todayDate = getKstCompactDate(toKstDate(now))
+  const targetDate = availableDates.includes(todayDate) ? todayDate : (availableDates[0] ?? todayDate)
+  const pointsByTime = new Map<string, ForecastPoint>()
 
-function mapHourlyForecast(hourly: OpenMeteoForecastResponse['hourly']): HourlyWeatherForecast[] {
-  return hourly.time.map((time, index) => ({
-    time,
-    temperature: hourly.temperature_2m[index] ?? 0,
-  }))
-}
+  let temperatureMin: number | null = null
+  let temperatureMax: number | null = null
+  let precipitationProbabilityMax = 0
 
-function normalizeForecastDays(forecastDays?: number) {
-  if (forecastDays === undefined) {
-    return DEFAULT_FORECAST_DAYS
+  for (const item of items) {
+    if (item.fcstDate !== targetDate) {
+      continue
+    }
+
+    const numericValue = getNumericKmaValue(item.fcstValue)
+
+    if (item.category === 'TMN' && numericValue !== null) {
+      temperatureMin = numericValue
+      continue
+    }
+
+    if (item.category === 'TMX' && numericValue !== null) {
+      temperatureMax = numericValue
+      continue
+    }
+
+    const point = getOrCreateForecastPoint(pointsByTime, item.fcstDate, item.fcstTime)
+
+    switch (item.category) {
+      case 'TMP':
+        point.temperature = numericValue
+        break
+      case 'POP':
+        point.precipitationProbability = numericValue
+        precipitationProbabilityMax = Math.max(precipitationProbabilityMax, numericValue ?? 0)
+        break
+      case 'SKY':
+        point.sky = numericValue
+        break
+      case 'PTY':
+        point.precipitationType = numericValue
+        break
+      case 'LGT':
+        point.lightning = numericValue
+        break
+      case 'WSD':
+        point.windSpeed = numericValue
+        break
+      default:
+        break
+    }
   }
 
-  return Math.min(Math.max(Math.trunc(forecastDays), 1), 16)
+  const sortedPoints = Array.from(pointsByTime.values()).sort((left, right) =>
+    left.time.localeCompare(right.time),
+  )
+  const hourly = sortedPoints
+    .filter((point) => point.temperature !== null)
+    .map((point) => ({
+      time: point.time,
+      temperature: point.temperature ?? 0,
+    }))
+
+  const fallbackTemperatures = hourly.map((item) => item.temperature)
+  const resolvedTemperatureMin =
+    temperatureMin ?? (fallbackTemperatures.length > 0 ? Math.min(...fallbackTemperatures) : null)
+  const resolvedTemperatureMax =
+    temperatureMax ?? (fallbackTemperatures.length > 0 ? Math.max(...fallbackTemperatures) : null)
+  const representativePoint =
+    getRepresentativeForecastPoint(sortedPoints) ?? sortedPoints[0] ?? null
+  const date = toHyphenatedDate(targetDate)
+
+  return {
+    daily:
+      resolvedTemperatureMin !== null && resolvedTemperatureMax !== null
+        ? [
+            {
+              date,
+              weatherCode: deriveWeatherCode({
+                precipitationType: representativePoint?.precipitationType ?? null,
+                sky: representativePoint?.sky ?? null,
+                lightning: representativePoint?.lightning ?? null,
+              }),
+              temperatureMax: resolvedTemperatureMax,
+              temperatureMin: resolvedTemperatureMin,
+              precipitationProbabilityMax,
+            },
+          ]
+        : [],
+    hourly,
+    points: sortedPoints,
+  }
+}
+
+function getOrCreateForecastPoint(
+  pointsByTime: Map<string, ForecastPoint>,
+  date: string,
+  time: string,
+) {
+  const key = `${date}${time}`
+  const existingPoint = pointsByTime.get(key)
+
+  if (existingPoint) {
+    return existingPoint
+  }
+
+  const nextPoint: ForecastPoint = {
+    time: createOffsetDateTime(date, time),
+    temperature: null,
+    precipitationProbability: null,
+    sky: null,
+    precipitationType: null,
+    lightning: null,
+    windSpeed: null,
+  }
+
+  pointsByTime.set(key, nextPoint)
+  return nextPoint
+}
+
+function getRepresentativeForecastPoint(points: ForecastPoint[]) {
+  const noonPoint = points.find((point) => point.time.includes('T12:00:00+09:00'))
+
+  if (noonPoint) {
+    return noonPoint
+  }
+
+  return points.find((point) => point.time.includes('T15:00:00+09:00')) ?? null
+}
+
+function getNearestForecastPoint(points: ForecastPoint[], referenceTime: string) {
+  if (points.length === 0) {
+    return null
+  }
+
+  const referenceTimestamp = new Date(referenceTime).getTime()
+
+  if (!Number.isFinite(referenceTimestamp)) {
+    return points[0]
+  }
+
+  return points.reduce((bestPoint, point) => {
+    const pointDistance = Math.abs(new Date(point.time).getTime() - referenceTimestamp)
+    const bestDistance = Math.abs(new Date(bestPoint.time).getTime() - referenceTimestamp)
+
+    return pointDistance < bestDistance ? point : bestPoint
+  }, points[0])
+}
+
+function buildFallbackDailyForecast(hourly: HourlyWeatherForecast[], now: Date): DailyWeatherForecast | null {
+  if (hourly.length === 0) {
+    return null
+  }
+
+  const temperatures = hourly.map((item) => item.temperature)
+
+  return {
+    date: toHyphenatedDate(getKstCompactDate(toKstDate(now))),
+    weatherCode: 1,
+    temperatureMax: Math.max(...temperatures),
+    temperatureMin: Math.min(...temperatures),
+    precipitationProbabilityMax: 0,
+  }
 }
 
 function validateCoordinates({ latitude, longitude }: GetWeatherForecastParams) {
@@ -149,10 +401,197 @@ function validateCoordinates({ latitude, longitude }: GetWeatherForecastParams) 
   }
 }
 
-async function readJsonSafely<T>(response: Response) {
+function getKmaServiceKey() {
+  const serviceKey = import.meta.env.VITE_KMA_SERVICE_KEY?.trim()
+
+  if (!serviceKey) {
+    throw new Error('VITE_KMA_SERVICE_KEY가 설정되지 않았습니다.')
+  }
+
+  return serviceKey
+}
+
+function createKmaRequestUrl(
+  endpoint: string,
+  params: Record<string, string>,
+) {
+  const requestUrl = new URL(endpoint)
+  const searchParams = new URLSearchParams()
+
+  searchParams.set('serviceKey', normalizeServiceKey(params.serviceKey))
+  searchParams.set('pageNo', '1')
+  searchParams.set('numOfRows', '1000')
+  searchParams.set('dataType', 'JSON')
+  searchParams.set('base_date', params.base_date)
+  searchParams.set('base_time', params.base_time)
+  searchParams.set('nx', params.nx)
+  searchParams.set('ny', params.ny)
+  requestUrl.search = searchParams.toString().replace(
+    `serviceKey=${encodeURIComponent(normalizeServiceKey(params.serviceKey))}`,
+    `serviceKey=${normalizeServiceKey(params.serviceKey)}`,
+  )
+
+  return requestUrl
+}
+
+function normalizeServiceKey(serviceKey: string) {
   try {
-    return (await response.json()) as T
+    return decodeURIComponent(serviceKey) === serviceKey
+      ? encodeURIComponent(serviceKey)
+      : serviceKey
   } catch {
+    return encodeURIComponent(serviceKey)
+  }
+}
+
+function getUltraShortNowcastBaseDateTime(now: Date) {
+  const kstDate = toKstDate(now)
+
+  if (kstDate.getUTCMinutes() < 40) {
+    kstDate.setUTCHours(kstDate.getUTCHours() - 1)
+  }
+
+  kstDate.setUTCMinutes(0, 0, 0)
+  return kstDate
+}
+
+function getVillageForecastBaseDateTime(now: Date) {
+  const kstDate = toKstDate(now)
+  const hour = kstDate.getUTCHours()
+  const minute = kstDate.getUTCMinutes()
+  const availableBaseHour = [...KMA_VILLAGE_BASE_HOURS]
+    .reverse()
+    .find((baseHour) => hour > baseHour || (hour === baseHour && minute >= 10))
+
+  if (availableBaseHour === undefined) {
+    kstDate.setUTCDate(kstDate.getUTCDate() - 1)
+    kstDate.setUTCHours(23, 0, 0, 0)
+    return kstDate
+  }
+
+  kstDate.setUTCHours(availableBaseHour, 0, 0, 0)
+  return kstDate
+}
+
+function toKstDate(date: Date) {
+  return new Date(date.getTime() + KST_OFFSET_MS)
+}
+
+function getKstCompactDate(date: Date) {
+  return [
+    String(date.getUTCFullYear()),
+    String(date.getUTCMonth() + 1).padStart(2, '0'),
+    String(date.getUTCDate()).padStart(2, '0'),
+  ].join('')
+}
+
+function getKstCompactTime(date: Date) {
+  return [
+    String(date.getUTCHours()).padStart(2, '0'),
+    String(date.getUTCMinutes()).padStart(2, '0'),
+  ].join('')
+}
+
+function getKstHourTime(date: Date) {
+  const kstDate = toKstDate(date)
+  return `${String(kstDate.getUTCHours()).padStart(2, '0')}00`
+}
+
+function createOffsetDateTime(compactDate: string, compactTime: string) {
+  return `${compactDate.slice(0, 4)}-${compactDate.slice(4, 6)}-${compactDate.slice(6, 8)}T${compactTime.slice(0, 2)}:${compactTime.slice(2, 4)}:00+09:00`
+}
+
+function toHyphenatedDate(compactDate: string) {
+  return `${compactDate.slice(0, 4)}-${compactDate.slice(4, 6)}-${compactDate.slice(6, 8)}`
+}
+
+function getNumericKmaValue(value?: string) {
+  if (value === undefined) {
     return null
   }
+
+  const parsedValue = Number(value)
+  return Number.isFinite(parsedValue) ? parsedValue : null
+}
+
+function deriveWeatherCode({
+  precipitationType,
+  sky,
+  lightning,
+}: {
+  precipitationType: number | null
+  sky: number | null
+  lightning: number | null
+}) {
+  if (lightning !== null && lightning > 0) {
+    return 95
+  }
+
+  switch (precipitationType) {
+    case 1:
+    case 5:
+      return 61
+    case 2:
+    case 6:
+      return 68
+    case 3:
+    case 7:
+      return 71
+    case 4:
+      return 80
+    default:
+      break
+  }
+
+  switch (sky) {
+    case 1:
+      return 0
+    case 3:
+      return 2
+    case 4:
+      return 3
+    default:
+      return 1
+  }
+}
+
+function isDaytime(value: string) {
+  const hour = toKstDate(new Date(value)).getUTCHours()
+  return hour >= 6 && hour < 18
+}
+
+function toKilometersPerHour(metersPerSecond: number) {
+  return Math.round(metersPerSecond * 3.6 * 10) / 10
+}
+
+async function readKmaErrorMessage(response: Response) {
+  const rawBody = await response.text()
+
+  if (!rawBody) {
+    return null
+  }
+
+  try {
+    const parsedBody = JSON.parse(rawBody) as KmaApiResponse<unknown>
+    const resultMessage = parsedBody.response?.header?.resultMsg
+
+    if (resultMessage) {
+      return resultMessage
+    }
+  } catch {
+    // Some KMA errors are returned as XML/text.
+  }
+
+  const xmlMessage =
+    extractXmlValue(rawBody, 'returnAuthMsg') ??
+    extractXmlValue(rawBody, 'returnReasonCode') ??
+    extractXmlValue(rawBody, 'resultMsg') ??
+    extractXmlValue(rawBody, 'errMsg')
+
+  return xmlMessage?.trim() || null
+}
+
+function extractXmlValue(rawBody: string, tagName: string) {
+  const matchedValue = rawBody.match(new RegExp(`<${tagName}>([^<]+)</${tagName}>`, 'i'))
+  return matchedValue?.[1] ?? null
 }

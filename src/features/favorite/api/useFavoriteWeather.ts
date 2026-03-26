@@ -9,7 +9,6 @@ export function useFavoriteWeather(favorites: FavoritePlace[]) {
         latitude: favorite.latitude,
         longitude: favorite.longitude,
         timezone: favorite.timezone,
-        forecastDays: 1,
       }),
     ),
   })

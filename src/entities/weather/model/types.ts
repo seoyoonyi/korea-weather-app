@@ -5,7 +5,6 @@ export type WeatherCoordinates = {
 
 export type GetWeatherForecastParams = WeatherCoordinates & {
   timezone?: string
-  forecastDays?: number
 }
 
 export type CurrentWeather = {

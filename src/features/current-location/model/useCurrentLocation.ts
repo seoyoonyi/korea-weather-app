@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import type { WeatherCoordinates } from '@/entities/weather/model/types'
-import { BIG_DATA_CLOUD_REVERSE_GEOCODE_API_URL } from '@/shared/config/api'
 
 const SEOUL_COORDINATES: WeatherCoordinates = {
   latitude: 37.5665,
@@ -26,7 +25,6 @@ export function useCurrentLocation() {
 
   useEffect(() => {
     let cancelled = false
-    const reverseGeocodeAbortController = new AbortController()
 
     if (!navigator.geolocation) {
       setState((previousState) => ({
@@ -38,13 +36,11 @@ export function useCurrentLocation() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
+      (position) => {
         const coordinates = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         }
-
-        const label = await getLocationLabel(coordinates, reverseGeocodeAbortController.signal)
 
         if (cancelled) {
           return
@@ -52,7 +48,7 @@ export function useCurrentLocation() {
 
         setState({
           coordinates,
-          label,
+          label: '현재 위치',
           source: 'geolocation',
           isResolving: false,
           message: null,
@@ -78,49 +74,8 @@ export function useCurrentLocation() {
 
     return () => {
       cancelled = true
-      reverseGeocodeAbortController.abort()
     }
   }, [])
 
   return state
-}
-
-type ReverseGeocodeResponse = {
-  city?: string
-  locality?: string
-  principalSubdivision?: string
-}
-
-async function getLocationLabel(coordinates: WeatherCoordinates, signal: AbortSignal) {
-  try {
-    const requestUrl = new URL(BIG_DATA_CLOUD_REVERSE_GEOCODE_API_URL)
-
-    requestUrl.searchParams.set('latitude', String(coordinates.latitude))
-    requestUrl.searchParams.set('longitude', String(coordinates.longitude))
-    requestUrl.searchParams.set('localityLanguage', 'ko')
-
-    const response = await fetch(requestUrl, {
-      headers: {
-        Accept: 'application/json',
-      },
-      signal,
-    })
-
-    if (!response.ok) {
-      return '현재 위치'
-    }
-
-    const data = (await response.json()) as ReverseGeocodeResponse
-    return formatLocationLabel(data)
-  } catch {
-    return '현재 위치'
-  }
-}
-
-function formatLocationLabel({ locality, city, principalSubdivision }: ReverseGeocodeResponse) {
-  const labelParts = Array.from(
-    new Set([locality, city, principalSubdivision].filter((value): value is string => Boolean(value))),
-  )
-
-  return labelParts.length > 0 ? labelParts.join(' · ') : '현재 위치'
 }

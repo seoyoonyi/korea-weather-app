@@ -48,7 +48,6 @@ export function HomePage() {
   const currentWeatherQuery = useWeatherForecastQuery({
     ...currentLocation.coordinates,
     timezone: browserTimeZone,
-    forecastDays: 1,
   })
 
   const selectedDistrictWeatherQuery = useWeatherForecastQuery(
@@ -56,7 +55,6 @@ export function HomePage() {
       latitude: selectedDistrictCoordinates.data?.latitude ?? 0,
       longitude: selectedDistrictCoordinates.data?.longitude ?? 0,
       timezone: selectedDistrictCoordinates.data?.timezone ?? browserTimeZone,
-      forecastDays: 1,
     },
     {
       enabled: Boolean(selectedDistrictCoordinates.data),
@@ -268,7 +266,7 @@ export function HomePage() {
 
         <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="rounded-[2rem] border border-white/70 bg-white/85 p-8 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-sky-700">Open API Weather</p>
+            <p className="text-sm font-medium uppercase tracking-[0.24em] text-sky-700">KMA Weather</p>
             <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
                 <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">{activeLocationLabel}</h2>

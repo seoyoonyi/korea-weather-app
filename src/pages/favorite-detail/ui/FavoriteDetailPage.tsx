@@ -19,7 +19,6 @@ export function FavoriteDetailPage() {
       latitude: favorite?.latitude ?? 0,
       longitude: favorite?.longitude ?? 0,
       timezone: favorite?.timezone ?? browserTimeZone,
-      forecastDays: 1,
     },
     {
       enabled: Boolean(favorite),
