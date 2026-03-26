@@ -15,6 +15,12 @@ const KST_OFFSET_MS = 9 * 60 * 60 * 1000
 const KMA_TIMEZONE_ABBREVIATION = 'KST'
 const KMA_SUCCESS_CODE = '00'
 const KMA_VILLAGE_BASE_HOURS = [2, 5, 8, 11, 14, 17, 20, 23]
+const KMA_MIN_REQUEST_INTERVAL_MS = 350
+const KMA_RATE_LIMIT_RETRY_COUNT = 2
+const KMA_RATE_LIMIT_RETRY_DELAY_MS = 1500
+
+let kmaRequestQueue: Promise<void> = Promise.resolve()
+let lastKmaRequestStartedAt = 0
 
 type KmaGridCoordinates = {
   nx: number
@@ -179,12 +185,7 @@ async function fetchKmaItems<TItem>({
     nx: String(grid.nx),
     ny: String(grid.ny),
   })
-  const response = await fetch(requestUrl, {
-    headers: {
-      Accept: 'application/json',
-    },
-    signal,
-  })
+  const response = await fetchKmaResponseWithRetry(requestUrl, signal)
 
   if (!response.ok) {
     const errorMessage = await readKmaErrorMessage(response)
@@ -564,7 +565,98 @@ function toKilometersPerHour(metersPerSecond: number) {
   return Math.round(metersPerSecond * 3.6 * 10) / 10
 }
 
+async function fetchKmaResponseWithRetry(requestUrl: URL, signal?: AbortSignal) {
+  let lastResponse: Response | null = null
+
+  for (let attempt = 0; attempt <= KMA_RATE_LIMIT_RETRY_COUNT; attempt += 1) {
+    const response = await enqueueKmaRequest(
+      () =>
+        fetch(requestUrl, {
+          headers: {
+            Accept: 'application/json',
+          },
+          signal,
+        }),
+      signal,
+    )
+
+    if (response.status !== 429) {
+      return response
+    }
+
+    lastResponse = response
+
+    if (attempt < KMA_RATE_LIMIT_RETRY_COUNT) {
+      await waitFor(
+        KMA_RATE_LIMIT_RETRY_DELAY_MS * (attempt + 1),
+        signal,
+      )
+    }
+  }
+
+  return lastResponse as Response
+}
+
+function enqueueKmaRequest<T>(request: () => Promise<T>, signal?: AbortSignal) {
+  const runRequest = async () => {
+    throwIfAborted(signal)
+
+    const waitTime = Math.max(
+      0,
+      lastKmaRequestStartedAt + KMA_MIN_REQUEST_INTERVAL_MS - Date.now(),
+    )
+
+    if (waitTime > 0) {
+      await waitFor(waitTime, signal)
+    }
+
+    throwIfAborted(signal)
+    lastKmaRequestStartedAt = Date.now()
+
+    return request()
+  }
+
+  const scheduledRequest = kmaRequestQueue.then(runRequest, runRequest)
+  kmaRequestQueue = scheduledRequest.then(
+    () => undefined,
+    () => undefined,
+  )
+
+  return scheduledRequest
+}
+
+function waitFor(delayMs: number, signal?: AbortSignal) {
+  if (delayMs <= 0) {
+    return Promise.resolve()
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      signal?.removeEventListener('abort', handleAbort)
+      resolve()
+    }, delayMs)
+
+    function handleAbort() {
+      window.clearTimeout(timeoutId)
+      signal?.removeEventListener('abort', handleAbort)
+      reject(new DOMException('The operation was aborted.', 'AbortError'))
+    }
+
+    signal?.addEventListener('abort', handleAbort, { once: true })
+  })
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new DOMException('The operation was aborted.', 'AbortError')
+  }
+}
+
 async function readKmaErrorMessage(response: Response) {
+  if (response.status === 429) {
+    return '기상청 요청이 몰려 잠시 후 다시 시도해 주세요.'
+  }
+
   const rawBody = await response.text()
 
   if (!rawBody) {

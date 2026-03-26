@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import type { FavoritePlace } from '@/entities/favorite/model/types'
 import { getWeatherConditionLabel } from '@/entities/weather/model/getWeatherConditionLabel'
 import type { WeatherForecast } from '@/entities/weather/model/types'
+import { getWeatherSymbol } from '@/shared/lib/weatherSymbol'
 
 export function FavoriteCards({
   favorites,
@@ -29,17 +30,18 @@ export function FavoriteCards({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {favorites.map((favorite, index) => {
         const weatherQuery = weatherQueries[index]
         const weather = weatherQuery?.data
         const today = weather?.daily[0]
         const isEditing = editingFavoriteId === favorite.id
+        const weatherSymbol = weather ? getWeatherSymbol(weather.current.weatherCode) : '☀'
 
         return (
           <article
             key={favorite.id}
-            className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-sky-300"
+            className="rounded-[1.75rem] border border-slate-300 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400"
           >
             <div
               className="block w-full text-left"
@@ -56,7 +58,7 @@ export function FavoriteCards({
               {isEditing ? (
                 <div className="space-y-3" onClick={(event) => event.stopPropagation()}>
                   <input
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
                     value={draftAlias}
                     onChange={(event) => setDraftAlias(event.target.value)}
                   />
@@ -90,55 +92,46 @@ export function FavoriteCards({
                     <div>
                       <p className="text-2xl font-semibold tracking-tight text-slate-950">{favorite.alias}</p>
                       <p className="mt-2 text-sm text-slate-500">{favorite.label}</p>
-                      <p className="mt-1 text-xs text-slate-400">
-                        {formatFavoritePath(favorite.districtFullName, favorite.districtName)}
+                    </div>
+                    <button
+                      className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setEditingFavoriteId(favorite.id)
+                        setDraftAlias(favorite.alias)
+                      }}
+                    >
+                      edit name
+                    </button>
+                  </div>
+
+                  <div className="mt-6 flex items-end justify-between gap-4">
+                    <div>
+                      <p className="text-5xl font-semibold leading-none tracking-tight text-slate-950">
+                        {weather ? `${Math.round(weather.current.temperature)}°` : '--'}
+                      </p>
+                      <p className="mt-4 text-xl leading-none text-slate-900">{weatherSymbol}</p>
+                      <p className="mt-4 text-sm font-medium text-slate-700">
+                        H {today ? `${Math.round(today.temperatureMax)}°` : '--'} / L{' '}
+                        {today ? `${Math.round(today.temperatureMin)}°` : '--'}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-500">
+                        {weatherQuery?.isLoading
+                          ? '날씨 불러오는 중'
+                          : weatherQuery?.error
+                            ? '날씨 정보를 불러오지 못했습니다.'
+                            : weather
+                              ? getWeatherConditionLabel(weather.current.weatherCode)
+                              : '정보 없음'}
                       </p>
                     </div>
-                    <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700">
-                      #{index + 1}
-                    </span>
                   </div>
-
-                  <div className="mt-5 grid grid-cols-3 gap-3">
-                    <StatBubble
-                      label="현재"
-                      value={weather ? `${Math.round(weather.current.temperature)}°` : '--'}
-                    />
-                    <StatBubble
-                      label="최저"
-                      value={today ? `${Math.round(today.temperatureMin)}°` : '--'}
-                    />
-                    <StatBubble
-                      label="최고"
-                      value={today ? `${Math.round(today.temperatureMax)}°` : '--'}
-                    />
-                  </div>
-
-                  <p className="mt-4 text-sm text-slate-600">
-                    {weatherQuery?.isLoading
-                      ? '날씨 불러오는 중'
-                      : weatherQuery?.error
-                        ? '날씨 정보를 불러오지 못했습니다.'
-                        : weather
-                          ? getWeatherConditionLabel(weather.current.weatherCode)
-                          : '정보 없음'}
-                  </p>
                 </>
               )}
             </div>
 
             {!isEditing ? (
-              <div className="mt-5 flex gap-2">
-                <button
-                  className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    setEditingFavoriteId(favorite.id)
-                    setDraftAlias(favorite.alias)
-                  }}
-                >
-                  별칭 수정
-                </button>
+              <div className="mt-5 flex justify-end gap-2">
                 <button
                   className="rounded-2xl border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
                   onClick={(event) => {
@@ -155,18 +148,4 @@ export function FavoriteCards({
       })}
     </div>
   )
-}
-
-function StatBubble({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl bg-slate-50 px-3 py-3">
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">{value}</p>
-    </div>
-  )
-}
-
-function formatFavoritePath(districtFullName: string, districtName: string) {
-  const path = districtFullName || districtName
-  return path ? path.replaceAll('-', ' > ') : '경로 정보 없음'
 }

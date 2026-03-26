@@ -14,8 +14,8 @@ import {
 import { useCurrentLocation } from '@/features/current-location/model/useCurrentLocation'
 import { DEFAULT_WEATHER_TIMEZONE } from '@/shared/config/api'
 import { formatDateTime, formatHour, getTodayHourlyTemperatures } from '@/shared/lib/weather'
+import { getWeatherSymbol } from '@/shared/lib/weatherSymbol'
 import { InfoRow } from '@/shared/ui/InfoRow'
-import { MetricCard } from '@/shared/ui/MetricCard'
 
 const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_WEATHER_TIMEZONE
 
@@ -33,7 +33,7 @@ export function HomePage() {
   } = useFavorites()
   const currentLocation = useCurrentLocation()
   const { data: districtTree, isLoading: isDistrictTreeLoading } = useDistrictTree()
-  const favoriteWeatherQueries = useFavoriteWeather(favorites)
+  const isSearchingPlace = Boolean(selectedDistrict)
 
   const isSearchSelectionLocked =
     selectedDistrict !== null &&
@@ -48,6 +48,8 @@ export function HomePage() {
   const currentWeatherQuery = useWeatherForecastQuery({
     ...currentLocation.coordinates,
     timezone: browserTimeZone,
+  }, {
+    enabled: !isSearchingPlace,
   })
 
   const selectedDistrictWeatherQuery = useWeatherForecastQuery(
@@ -61,11 +63,11 @@ export function HomePage() {
     },
   )
 
+  const favoriteWeatherQueries = useFavoriteWeather(favorites)
   const selectedFavorite = selectedDistrict
     ? findFavoriteByDistrict(selectedDistrict.fullName)
     : undefined
   const isFavoriteLimitReached = favorites.length >= FAVORITES_LIMIT && !selectedFavorite
-  const isSearchingPlace = Boolean(selectedDistrict)
   const activeWeatherQuery = isSearchingPlace ? selectedDistrictWeatherQuery : currentWeatherQuery
   const activeWeather = activeWeatherQuery.data
   const activeLocationLabel = getActiveLocationLabel(
@@ -119,38 +121,34 @@ export function HomePage() {
     })
   }
 
-  return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.18),_transparent_32%),linear-gradient(180deg,_#f8fafc_0%,_#e0f2fe_100%)] px-6 py-10 text-slate-950 lg:px-10">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <section className="rounded-[2rem] border border-white/70 bg-white/85 p-8 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.24em] text-sky-700">
-                Korea District Search
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-                대한민국 행정구역으로 날씨 검색
-              </h1>
-              <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-                시, 군, 구, 동 단위 이름으로 검색하면 매칭되는 행정구역 목록을 보여주고,
-                선택한 장소의 날씨를 조회합니다.
-              </p>
-            </div>
-            <div className="rounded-3xl bg-slate-950 px-5 py-4 text-slate-50">
-              <p className="text-sm text-slate-300">즐겨찾기</p>
-              <p className="mt-2 text-lg font-medium">
-                {favorites.length} / {FAVORITES_LIMIT}
-              </p>
-            </div>
-          </div>
+  const weatherConditionLabel = activeWeather
+    ? getWeatherConditionLabel(activeWeather.current.weatherCode)
+    : '데이터 대기 중'
+  const weatherSymbol = activeWeather ? getWeatherSymbol(activeWeather.current.weatherCode) : '○'
 
-          <div className="mt-8 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-            <div>
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-700">장소 검색</span>
+  return (
+    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950 md:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1600px]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(260px,25%)_minmax(0,1fr)]">
+          <aside className="space-y-6">
+            <section className="rounded-[2rem] border border-slate-300 bg-white p-6 shadow-sm">
+              <div className="rounded-[1.5rem] border border-slate-300 px-5 py-8 text-center">
+                <p className="text-sm font-medium uppercase tracking-[0.26em] text-slate-500">
+                  App Logo / Title
+                </p>
+                <h1 className="mt-3 text-3xl font-semibold tracking-tight">Weather App</h1>
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-slate-300 bg-white p-6 shadow-sm">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+                Location Search
+              </p>
+
+              <label className="mt-4 block">
                 <input
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-                  placeholder="예: 서울특별시, 종로구, 청운동"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
+                  placeholder="장소를 검색하세요"
                   value={searchKeyword}
                   onChange={(event) => {
                     const nextValue = event.target.value
@@ -167,24 +165,21 @@ export function HomePage() {
               </label>
 
               {districtSuggestions.length > 0 ? (
-                <div className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white">
-                  <ul className="divide-y divide-slate-100">
+                <div className="mt-3 overflow-hidden rounded-[1.5rem] border border-slate-300 bg-white">
+                  <ul className="divide-y divide-slate-200">
                     {districtSuggestions.map((district) => (
                       <li key={district.fullName}>
                         <button
-                          className="flex w-full items-start justify-between gap-4 px-4 py-4 text-left transition hover:bg-sky-50"
+                          className="flex w-full items-start justify-between gap-4 px-4 py-3 text-left transition hover:bg-slate-50"
                           onClick={() => {
                             setSelectedDistrict(district)
                             setSearchKeyword(district.fullName)
                           }}
                         >
                           <div>
-                            <p className="text-base font-medium text-slate-950">{district.name}</p>
-                            <p className="mt-1 text-sm text-slate-500">
-                              {district.fullName.replaceAll('-', ' > ')}
-                            </p>
+                            <p className="text-base font-medium text-slate-950">{district.fullName}</p>
                           </div>
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
                             {district.depth}단계
                           </span>
                         </button>
@@ -195,187 +190,205 @@ export function HomePage() {
               ) : null}
 
               {searchStatusMessage ? (
-                <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                <p className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                   {searchStatusMessage}
                 </p>
               ) : null}
-            </div>
+            </section>
 
-            <div className="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-slate-50">
-              <p className="text-sm uppercase tracking-[0.24em] text-sky-300">Selected Place</p>
-              <div className="mt-5 space-y-4">
-                <InfoRow label="표시 위치" value={activeLocationLabel} />
-                <InfoRow
-                  label="조회 기준"
-                  value={isSearchingPlace ? '검색으로 선택한 장소' : '브라우저 현재 위치'}
-                />
-                <InfoRow
-                  label="행정구역 경로"
-                  value={selectedDistrict ? selectedDistrict.fullName.replaceAll('-', ' > ') : '선택된 장소 없음'}
-                />
-              </div>
-
-              <div className="mt-6">
-                {selectedFavorite ? (
-                  <button
-                    className="w-full rounded-2xl border border-red-200 px-4 py-3 text-sm font-medium text-red-700 transition hover:bg-red-50"
-                    onClick={() => removeFavorite(selectedFavorite.id)}
-                  >
-                    즐겨찾기에서 삭제
-                  </button>
-                ) : (
-                  <button
-                    className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-950 transition hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-300"
-                    disabled={
-                      !selectedDistrictCoordinates.data ||
-                      selectedDistrictCoordinates.isLoading ||
-                      isFavoriteLimitReached
-                    }
-                    onClick={handleAddFavorite}
-                  >
-                    즐겨찾기에 추가
-                  </button>
-                )}
-
-                {favoriteActionMessage ? (
-                  <p className="mt-3 text-sm text-slate-300">{favoriteActionMessage}</p>
+            <section className="rounded-[2rem] border border-slate-300 bg-white p-6 shadow-sm">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+                Current Location
+              </p>
+              <div className="mt-4 rounded-[1.5rem] border border-slate-300 p-5">
+                <p className="text-sm text-slate-500">Your Location</p>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                  {currentLocation.label}
+                </p>
+                <p className="mt-3 text-sm text-slate-500">
+                  위도 {currentLocation.coordinates.latitude.toFixed(4)}, 경도{' '}
+                  {currentLocation.coordinates.longitude.toFixed(4)}
+                </p>
+                {currentLocation.message ? (
+                  <p className="mt-4 text-sm leading-6 text-slate-500">{currentLocation.message}</p>
                 ) : null}
               </div>
-            </div>
-          </div>
-        </section>
+            </section>
+          </aside>
 
-        <section className="rounded-[2rem] border border-white/70 bg-white/85 p-8 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.22em] text-sky-700">Favorites</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight">즐겨찾기 장소</h2>
-            </div>
-            <p className="text-sm text-slate-500">카드를 클릭하면 상세 페이지로 이동합니다.</p>
-          </div>
-
-          <div className="mt-6">
-            <FavoriteCards
-              favorites={favorites}
-              weatherQueries={favoriteWeatherQueries}
-              onRemoveFavorite={removeFavorite}
-              onUpdateFavoriteAlias={updateFavoriteAlias}
-            />
-          </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-[2rem] border border-white/70 bg-white/85 p-8 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-sky-700">KMA Weather</p>
-            <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div>
-                <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">{activeLocationLabel}</h2>
-                <p className="mt-3 text-base leading-7 text-slate-600">
-                  {activeCoordinates
-                    ? `위도 ${activeCoordinates.latitude.toFixed(4)}, 경도 ${activeCoordinates.longitude.toFixed(4)}`
-                    : '좌표를 찾는 중입니다.'}
-                </p>
-              </div>
-              <div className="rounded-3xl bg-slate-950 px-5 py-4 text-slate-50">
-                <p className="text-sm text-slate-300">상태</p>
-                <p className="mt-2 text-lg font-medium">
+          <section className="space-y-6">
+            <section className="rounded-[2rem] border border-slate-300 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+                    Detailed Weather
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                    {activeLocationLabel}
+                  </h2>
+                </div>
+                <span className="inline-flex rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600">
                   {getWeatherStatusLabel({
                     isSearchingPlace,
                     selectedDistrictCoordinatesLoading: selectedDistrictCoordinates.isLoading,
                     weatherLoading: activeWeatherQuery.isLoading,
                     weatherFetching: activeWeatherQuery.isFetching,
                   })}
-                </p>
+                </span>
               </div>
-            </div>
 
-            {renderWeatherMessage({
-              isSearchingPlace,
-              selectedDistrict,
-              currentLocationMessage: currentLocation.message,
-              selectedDistrictCoordinates: selectedDistrictCoordinates.data,
-              selectedDistrictCoordinatesError: selectedDistrictCoordinates.error,
-              weatherError: activeWeatherQuery.error,
-            })}
-
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              <MetricCard
-                label="현재 기온"
-                value={activeWeather ? `${Math.round(activeWeather.current.temperature)}°` : '--'}
-                helper={
-                  activeWeather ? getWeatherConditionLabel(activeWeather.current.weatherCode) : '데이터 대기 중'
-                }
-              />
-              <MetricCard
-                label="당일 최저"
-                value={today ? `${Math.round(today.temperatureMin)}°` : '--'}
-                helper={today ? `${today.date}` : '데이터 대기 중'}
-              />
-              <MetricCard
-                label="당일 최고"
-                value={today ? `${Math.round(today.temperatureMax)}°` : '--'}
-                helper={
-                  activeWeather ? `체감 ${Math.round(activeWeather.current.apparentTemperature)}°` : '데이터 대기 중'
-                }
-              />
-            </div>
-          </div>
-
-          <aside className="rounded-[2rem] border border-slate-200 bg-slate-950 p-8 text-slate-50 shadow-[0_24px_80px_rgba(2,6,23,0.18)]">
-            <p className="text-sm uppercase tracking-[0.24em] text-sky-300">Details</p>
-            <div className="mt-6 space-y-5">
-              <InfoRow label="표시 위치" value={activeLocationLabel} />
-              <InfoRow
-                label="시간대"
-                value={
-                  activeWeather?.location.timezone ??
-                  selectedDistrictCoordinates.data?.timezone ??
-                  browserTimeZone
-                }
-              />
-              <InfoRow
-                label="업데이트 시각"
-                value={activeWeather ? formatDateTime(activeWeather.current.time, browserTimeZone) : '--'}
-              />
-              <InfoRow
-                label="강수 확률"
-                value={today ? `${today.precipitationProbabilityMax}%` : '--'}
-              />
-              <InfoRow
-                label="풍속"
-                value={activeWeather ? `${Math.round(activeWeather.current.windSpeed)} km/h` : '--'}
-              />
-            </div>
-          </aside>
-        </section>
-
-        <section className="rounded-[2rem] border border-white/70 bg-white/85 p-8 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.22em] text-sky-700">Hourly Temperature</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight">시간대별 기온</h2>
-            </div>
-            <p className="text-sm text-slate-500">{today ? `${today.date} 기준` : '오늘 예보 준비 중'}</p>
-          </div>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {hourlyTemperatures.length > 0
-              ? hourlyTemperatures.map((hour) => (
-                  <article
-                    key={hour.time}
-                    className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-5 transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-50"
-                  >
-                    <p className="text-sm text-slate-500">{formatHour(hour.time, browserTimeZone)}</p>
-                    <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-                      {Math.round(hour.temperature)}°
+              <div className="mt-5 rounded-[1.8rem] border border-slate-300 p-6 md:p-8">
+                <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-center">
+                  <div className="text-center xl:text-left">
+                    <p className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
+                      {activeLocationLabel}
                     </p>
-                  </article>
-                ))
-              : Array.from({ length: 8 }).map((_, index) => (
-                  <div key={index} className="h-28 animate-pulse rounded-3xl bg-slate-100" />
-                ))}
-          </div>
-        </section>
+                    <div className="mt-6 flex flex-col items-center gap-4 xl:flex-row xl:items-end">
+                      <p className="text-[5rem] font-semibold leading-none tracking-[-0.08em] text-slate-950 sm:text-[6.5rem]">
+                        {activeWeather ? `${Math.round(activeWeather.current.temperature)}°` : '--'}
+                      </p>
+                      <div className="flex items-center gap-4">
+                        <span className="text-6xl leading-none text-slate-900">{weatherSymbol}</span>
+                        <div className="text-left">
+                          <p className="text-lg font-medium text-slate-900">
+                            체감 온도 {activeWeather ? `${Math.round(activeWeather.current.apparentTemperature)}°` : '--'}
+                          </p>
+                          <p className="mt-1 text-base text-slate-600">{weatherConditionLabel}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="mt-6 text-sm text-slate-500">
+                      {activeCoordinates
+                        ? `위도 ${activeCoordinates.latitude.toFixed(4)}, 경도 ${activeCoordinates.longitude.toFixed(4)}`
+                        : '좌표를 찾는 중입니다.'}
+                    </p>
+
+                    {renderWeatherMessage({
+                      isSearchingPlace,
+                      selectedDistrict,
+                      currentLocationMessage: currentLocation.message,
+                      selectedDistrictCoordinates: selectedDistrictCoordinates.data,
+                      selectedDistrictCoordinatesError: selectedDistrictCoordinates.error,
+                      weatherError: activeWeatherQuery.error,
+                    })}
+                  </div>
+
+                  <div className="space-y-4">
+                    <InfoRow label="최고 기온" value={today ? `${Math.round(today.temperatureMax)}°` : '--'} />
+                    <InfoRow label="최저 기온" value={today ? `${Math.round(today.temperatureMin)}°` : '--'} />
+                    <InfoRow label="강수 확률" value={today ? `${today.precipitationProbabilityMax}%` : '--'} />
+                    <InfoRow
+                      label="업데이트 시각"
+                      value={activeWeather ? formatDateTime(activeWeather.current.time, browserTimeZone) : '--'}
+                    />
+                    <InfoRow
+                      label="시간대"
+                      value={
+                        activeWeather?.location.timezone ??
+                        selectedDistrictCoordinates.data?.timezone ??
+                        browserTimeZone
+                      }
+                    />
+                    <InfoRow
+                      label="풍속"
+                      value={activeWeather ? `${Math.round(activeWeather.current.windSpeed)} km/h` : '--'}
+                    />
+
+                    <div className="rounded-[1.5rem] border border-slate-300 bg-slate-50 p-4">
+                      {selectedFavorite ? (
+                        <button
+                          className="w-full rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-medium text-red-700 transition hover:bg-red-50"
+                          onClick={() => removeFavorite(selectedFavorite.id)}
+                        >
+                          즐겨찾기에서 삭제
+                        </button>
+                      ) : (
+                        <button
+                          className="w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                          disabled={
+                            !selectedDistrictCoordinates.data ||
+                            selectedDistrictCoordinates.isLoading ||
+                            isFavoriteLimitReached
+                          }
+                          onClick={handleAddFavorite}
+                        >
+                          즐겨찾기에 추가
+                        </button>
+                      )}
+
+                      {favoriteActionMessage ? (
+                        <p className="mt-3 text-sm leading-6 text-slate-500">{favoriteActionMessage}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-slate-300 bg-white p-6 shadow-sm">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+                    Hourly Forecast
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                    시간대별 기온 그래프
+                  </h2>
+                </div>
+                <p className="text-sm text-slate-500">{today ? `${today.date} 기준` : '오늘 예보 준비 중'}</p>
+              </div>
+
+              <div className="mt-5 overflow-x-auto">
+                <div className="flex min-w-max gap-4 pb-2">
+                  {hourlyTemperatures.length > 0
+                    ? hourlyTemperatures.map((hour) => (
+                        <article
+                          key={hour.time}
+                          className="flex min-w-[140px] flex-col items-center rounded-[1.6rem] border border-slate-300 bg-white px-5 py-5 text-center"
+                        >
+                          <p className="text-sm font-medium text-slate-500">
+                            {formatHour(hour.time, browserTimeZone)}
+                          </p>
+                          <p className="mt-3 text-4xl leading-none text-slate-900">☀</p>
+                          <p className="mt-4 text-3xl font-semibold tracking-tight text-slate-950">
+                            {Math.round(hour.temperature)}°
+                          </p>
+                        </article>
+                      ))
+                    : Array.from({ length: 8 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="h-[170px] min-w-[140px] animate-pulse rounded-[1.6rem] bg-slate-100"
+                        />
+                      ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-slate-300 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+                    Favorites
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                    즐겨찾기 장소
+                  </h2>
+                </div>
+                <p className="text-sm text-slate-500">최대 6개까지 추가할 수 있으며 카드를 누르면 상세 페이지로 이동합니다.</p>
+              </div>
+
+              <div className="mt-6">
+                <FavoriteCards
+                  favorites={favorites}
+                  weatherQueries={favoriteWeatherQueries}
+                  onRemoveFavorite={removeFavorite}
+                  onUpdateFavoriteAlias={updateFavoriteAlias}
+                />
+              </div>
+            </section>
+          </section>
+        </div>
       </div>
     </main>
   )

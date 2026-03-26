@@ -7,6 +7,8 @@ type UseWeatherForecastQueryOptions = {
   enabled?: boolean
 }
 
+const WEATHER_QUERY_STALE_TIME = 1000 * 60 * 10
+
 export function weatherForecastQueryOptions(params: GetWeatherForecastParams) {
   return queryOptions({
     queryKey: [
@@ -16,6 +18,7 @@ export function weatherForecastQueryOptions(params: GetWeatherForecastParams) {
       params.timezone ?? DEFAULT_WEATHER_TIMEZONE,
     ],
     queryFn: ({ signal }) => getWeatherForecast(params, { signal }),
+    staleTime: WEATHER_QUERY_STALE_TIME,
   })
 }
 
