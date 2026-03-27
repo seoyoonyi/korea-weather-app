@@ -23,14 +23,14 @@ export function FavoriteCards({
 
   if (favorites.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-5 py-8 text-sm text-slate-500">
+      <div className="rounded-[1.8rem] border border-dashed border-white/15 bg-white/6 px-5 py-8 text-sm text-slate-300">
         즐겨찾기한 장소가 없습니다. 검색 후 장소를 선택해서 최대 6개까지 추가할 수 있습니다.
       </div>
     )
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {favorites.map((favorite, index) => {
         const weatherQuery = weatherQueries[index]
         const weather = weatherQuery?.data
@@ -41,7 +41,7 @@ export function FavoriteCards({
         return (
           <article
             key={favorite.id}
-            className="rounded-[1.75rem] border border-slate-300 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400"
+            className="rounded-[1.5rem] border border-white/10 bg-white/6 p-4 text-slate-50 shadow-[0_20px_50px_rgba(2,6,23,0.22)] transition hover:-translate-y-0.5 hover:bg-white/8 sm:rounded-[1.8rem] sm:p-5"
           >
             <div
               className="block w-full text-left"
@@ -58,13 +58,13 @@ export function FavoriteCards({
               {isEditing ? (
                 <div className="space-y-3" onClick={(event) => event.stopPropagation()}>
                   <input
-                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-slate-900 focus:ring-4 focus:ring-slate-200"
+                    className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-base outline-none transition placeholder:text-slate-400 focus:border-sky-300/40 focus:ring-4 focus:ring-sky-300/10"
                     value={draftAlias}
                     onChange={(event) => setDraftAlias(event.target.value)}
                   />
                   <div className="flex gap-2">
                     <button
-                      className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-medium text-white"
+                      className="rounded-2xl bg-white px-4 py-2 text-sm font-medium text-slate-950"
                       onClick={(event) => {
                         event.stopPropagation()
                         onUpdateFavoriteAlias(favorite.id, draftAlias)
@@ -75,7 +75,7 @@ export function FavoriteCards({
                       저장
                     </button>
                     <button
-                      className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
+                      className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-medium text-slate-200"
                       onClick={(event) => {
                         event.stopPropagation()
                         setEditingFavoriteId(null)
@@ -88,13 +88,15 @@ export function FavoriteCards({
                 </div>
               ) : (
                 <>
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-2xl font-semibold tracking-tight text-slate-950">{favorite.alias}</p>
-                      <p className="mt-2 text-sm text-slate-500">{favorite.label}</p>
+                      <p className="text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                        {favorite.alias}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-300">{favorite.label}</p>
                     </div>
                     <button
-                      className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600"
+                      className="self-start rounded-full border border-white/10 bg-white/6 px-3 py-1 text-xs font-medium text-slate-300 sm:self-auto"
                       onClick={(event) => {
                         event.stopPropagation()
                         setEditingFavoriteId(favorite.id)
@@ -105,17 +107,17 @@ export function FavoriteCards({
                     </button>
                   </div>
 
-                  <div className="mt-6 flex items-end justify-between gap-4">
+                  <div className="mt-5 flex items-end justify-between gap-4 sm:mt-6">
                     <div>
-                      <p className="text-5xl font-semibold leading-none tracking-tight text-slate-950">
+                      <p className="text-4xl font-semibold leading-none tracking-tight text-white sm:text-5xl">
                         {weather ? `${Math.round(weather.current.temperature)}°` : '--'}
                       </p>
-                      <p className="mt-4 text-xl leading-none text-slate-900">{weatherSymbol}</p>
-                      <p className="mt-4 text-sm font-medium text-slate-700">
+                      <p className="mt-3 text-lg leading-none text-slate-100 sm:mt-4 sm:text-xl">{weatherSymbol}</p>
+                      <p className="mt-4 text-sm font-medium text-slate-200">
                         H {today ? `${Math.round(today.temperatureMax)}°` : '--'} / L{' '}
                         {today ? `${Math.round(today.temperatureMin)}°` : '--'}
                       </p>
-                      <p className="mt-2 text-sm text-slate-500">
+                      <p className="mt-2 text-sm text-slate-300">
                         {weatherQuery?.isLoading
                           ? '날씨 불러오는 중'
                           : weatherQuery?.error
@@ -133,7 +135,7 @@ export function FavoriteCards({
             {!isEditing ? (
               <div className="mt-5 flex justify-end gap-2">
                 <button
-                  className="rounded-2xl border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
+                  className="rounded-2xl border border-rose-300/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/10"
                   onClick={(event) => {
                     event.stopPropagation()
                     onRemoveFavorite(favorite.id)

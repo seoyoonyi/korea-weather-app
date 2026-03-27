@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  color: #0f172a;
-  background-color: #f8fafc;
+  color: #e2e8f0;
+  background-color: #0d1230;
   font-family: "Pretendard Variable", "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo",
     sans-serif;
   line-height: 1.5;
@@ -25,6 +25,24 @@ body,
 
 body {
   min-width: 320px;
+  background: #0d1230;
+}
+
+.weather-night-shell {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 24% 8%, rgba(96, 108, 186, 0.22), transparent 30%),
+    radial-gradient(circle at 78% 30%, rgba(62, 83, 164, 0.14), transparent 24%),
+    linear-gradient(180deg, #0d1230 0%, #182044 46%, #243257 100%);
+}
+
+.weather-glass-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(51, 59, 109, 0.72) 0%, rgba(36, 44, 84, 0.82) 100%);
+  backdrop-filter: blur(22px);
+  box-shadow: 0 24px 70px rgba(2, 6, 23, 0.26);
 }
 
 button,
