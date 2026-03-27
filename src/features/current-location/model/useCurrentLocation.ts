@@ -36,10 +36,10 @@ type CurrentLocationState = {
 export function useCurrentLocation() {
   const [state, setState] = useState<CurrentLocationState>({
     coordinates: SEOUL_COORDINATES,
-    label: '서울',
+    label: '서울특별시',
     source: 'fallback',
     isResolving: true,
-    message: '현재 위치를 확인하는 동안 서울 날씨를 먼저 표시합니다.',
+    message: '현재 위치를 확인하는 동안 서울특별시 날씨를 먼저 표시합니다.',
   })
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export function useCurrentLocation() {
       setState((previousState) => ({
         ...previousState,
         isResolving: false,
-        message: '브라우저에서 위치 정보를 지원하지 않아 서울 기준 날씨를 표시합니다.',
+        message: '브라우저에서 위치 정보를 지원하지 않아 서울특별시 기준 날씨를 표시합니다.',
       }))
       return
     }
@@ -101,7 +101,7 @@ export function useCurrentLocation() {
             setState((previousState) => ({
               ...previousState,
               isResolving: false,
-              message: '브라우저 위치 권한이 거부되어 서울 기준 날씨를 표시합니다.',
+              message: '브라우저 위치 권한이 거부되어 서울특별시 기준 날씨를 표시합니다.',
             }))
             return
           }
@@ -165,18 +165,18 @@ function requestCurrentPosition(
 
 function getGeolocationErrorMessage(error: GeolocationPositionError) {
   if (error.code === error.PERMISSION_DENIED) {
-    return '브라우저 위치 권한이 거부되어 서울 기준 날씨를 표시합니다.'
+    return '브라우저 위치 권한이 거부되어 서울특별시 기준 날씨를 표시합니다.'
   }
 
   if (error.code === error.TIMEOUT) {
-    return '현재 위치 확인 시간이 초과되어 서울 기준 날씨를 표시합니다.'
+    return '현재 위치 확인 시간이 초과되어 서울특별시 기준 날씨를 표시합니다.'
   }
 
   if (error.code === error.POSITION_UNAVAILABLE) {
-    return '현재 위치를 가져올 수 없어 서울 기준 날씨를 표시합니다.'
+    return '현재 위치를 가져올 수 없어 서울특별시 기준 날씨를 표시합니다.'
   }
 
-  return '현재 위치 확인에 실패해 서울 기준 날씨를 표시합니다.'
+  return '현재 위치 확인에 실패해 서울특별시 기준 날씨를 표시합니다.'
 }
 
 async function resolveLocationLabel(coordinates: WeatherCoordinates, signal: AbortSignal) {
