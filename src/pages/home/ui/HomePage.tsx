@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { useDistrictCoords } from '@/entities/district/api/useDistrictCoords'
 import { useDistrictTree } from '@/entities/district/api/useDistrictTree'
 import type { DistrictNode } from '@/entities/district/model/types'
@@ -203,7 +203,12 @@ export function HomePage() {
       <div className="relative mx-auto w-full min-w-0 max-w-[1380px]">
         <header className="flex flex-col gap-4 py-2 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-medium tracking-[0.2em] text-slate-400">Korea Weather</p>
+            <Link
+              className="inline-flex text-xs font-medium tracking-[0.2em] text-slate-400 transition hover:text-slate-200"
+              to="/"
+            >
+              Korea Weather
+            </Link>
           </div>
 
           <div className="relative z-40 w-full lg:max-w-[42rem]">
@@ -383,31 +388,33 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="mt-6 weather-glass-card w-full min-w-0 overflow-hidden rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs font-medium tracking-[0.2em] text-slate-400">즐겨찾기</p>
-              <h3 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                즐겨찾기 장소
-              </h3>
-              <p className="mt-3 text-sm text-slate-300">
-                즐겨찾기는 최대 {FAVORITES_LIMIT}개까지 저장할 수 있으며 카드를 누르면 상세 페이지로 이동합니다.
-              </p>
+        {!isSearchingPlace ? (
+          <section className="mt-6 weather-glass-card w-full min-w-0 overflow-hidden rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-medium tracking-[0.2em] text-slate-400">즐겨찾기</p>
+                <h3 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                  즐겨찾기 장소
+                </h3>
+                <p className="mt-3 text-sm text-slate-300">
+                  즐겨찾기는 최대 {FAVORITES_LIMIT}개까지 저장할 수 있으며 카드를 누르면 상세 페이지로 이동합니다.
+                </p>
+              </div>
+              <div className="inline-flex self-start rounded-full border border-white/10 bg-white/8 px-4 py-2 text-sm font-medium text-slate-100">
+                {favorites.length} / {FAVORITES_LIMIT}
+              </div>
             </div>
-            <div className="inline-flex self-start rounded-full border border-white/10 bg-white/8 px-4 py-2 text-sm font-medium text-slate-100">
-              {favorites.length} / {FAVORITES_LIMIT}
-            </div>
-          </div>
 
-          <div className="mt-6">
-            <FavoriteCards
-              favorites={favorites}
-              weatherQueries={favoriteWeatherQueries}
-              onRemoveFavorite={removeFavorite}
-              onUpdateFavoriteAlias={updateFavoriteAlias}
-            />
-          </div>
-        </section>
+            <div className="mt-6">
+              <FavoriteCards
+                favorites={favorites}
+                weatherQueries={favoriteWeatherQueries}
+                onRemoveFavorite={removeFavorite}
+                onUpdateFavoriteAlias={updateFavoriteAlias}
+              />
+            </div>
+          </section>
+        ) : null}
       </div>
     </main>
   )
