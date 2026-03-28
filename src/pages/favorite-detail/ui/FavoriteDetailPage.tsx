@@ -55,11 +55,12 @@ export function FavoriteDetailPage() {
               저장된 장소가 삭제되었거나 잘못된 경로로 들어온 것 같아요. 홈에서 다시 장소를 선택해 주세요.
             </p>
             <Link
-              className="mt-8 inline-flex rounded-full border border-white/10 bg-white/10 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/14"
+              className="mt-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/14"
               aria-label="홈으로 돌아가기"
               to="/"
             >
-              {'<-'}
+              <span aria-hidden="true">{'<-'}</span>
+              <span>홈으로 돌아가기</span>
             </Link>
           </section>
         </div>
