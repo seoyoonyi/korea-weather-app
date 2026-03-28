@@ -48,8 +48,7 @@ export function FavoriteDetailPage() {
 
         <div className="relative mx-auto max-w-3xl pt-10 sm:pt-16">
           <section className="weather-glass-card rounded-[2rem] p-8 sm:p-10">
-            <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Favorite Detail</p>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
               즐겨찾기 장소를 찾을 수 없습니다.
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">
@@ -74,7 +73,8 @@ export function FavoriteDetailPage() {
   const weatherConditionLabel = weather ? getWeatherConditionLabel(weather.current.weatherCode) : '데이터 대기 중'
   const weatherSymbol = weather ? getWeatherSymbol(weather.current.weatherCode) : '○'
   const favoritePath = formatFavoritePath(favorite.districtFullName, favorite.districtName)
-  const statusLabel = getStatusLabel({
+  const heroDescription = getHeroDescription(favorite.label, favoritePath, favorite.alias)
+  const statusNotice = getStatusNotice({
     isLoading: weatherQuery.isLoading,
     isFetching: weatherQuery.isFetching,
     hasError: Boolean(weatherQuery.error),
@@ -85,7 +85,7 @@ export function FavoriteDetailPage() {
       <div className="pointer-events-none absolute left-[8%] top-[24rem] h-56 w-56 rounded-full bg-sky-300/8 blur-3xl" />
       <div className="pointer-events-none absolute bottom-20 right-[12%] h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-[1380px]">
+      <div className="relative mx-auto w-full min-w-0 max-w-[1380px]">
         <header className="flex flex-col gap-4 py-2 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <Link
@@ -95,15 +95,19 @@ export function FavoriteDetailPage() {
             >
               {'<-'}
             </Link>
-            <p className="mt-4 text-xs font-medium uppercase tracking-[0.34em] text-slate-400">
-              Favorite Detail
-            </p>
           </div>
 
-          <div className="weather-soft-panel inline-flex self-start rounded-full px-4 py-3 text-sm text-slate-200">
-            <span className="text-slate-400">상태</span>
-            <span className="ml-3 font-medium text-white">{statusLabel}</span>
-          </div>
+          {statusNotice ? (
+            <div
+              className={`weather-badge rounded-full border px-4 py-3 text-sm font-medium backdrop-blur-xl ${
+                statusNotice.tone === 'error'
+                  ? 'border-rose-200/25 bg-rose-500/12 text-rose-100'
+                  : 'border-white/10 bg-white/8 text-slate-100'
+              }`}
+            >
+              {statusNotice.label}
+            </div>
+          ) : null}
         </header>
 
         <section className="pb-8 pt-9 text-center sm:pb-12 sm:pt-12 md:pb-16 md:pt-16">
@@ -112,9 +116,11 @@ export function FavoriteDetailPage() {
           <h1 className="mx-auto mt-3 max-w-[12ch] break-keep text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl md:text-7xl">
             {favorite.alias}
           </h1>
-          <p className="mx-auto mt-4 max-w-[36rem] text-sm leading-6 text-slate-300 sm:text-base">
-            {favorite.label}
-          </p>
+          {heroDescription ? (
+            <p className="mx-auto mt-4 max-w-[36rem] text-sm leading-6 text-slate-300 sm:text-base">
+              {heroDescription}
+            </p>
+          ) : null}
           <p className="mt-4 text-[4.4rem] font-extralight leading-none tracking-[-0.08em] text-white sm:mt-5 sm:text-[6.5rem] md:text-[9rem]">
             {weather ? `${Math.round(weather.current.temperature)}°` : '--'}
           </p>
@@ -146,12 +152,12 @@ export function FavoriteDetailPage() {
             <section className="weather-glass-card rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Quick Metrics</p>
+                  <p className="text-xs font-medium tracking-[0.2em] text-slate-400">핵심 지표</p>
                   <h2 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
                     핵심 날씨 지표
                   </h2>
                 </div>
-                <span className="max-w-full rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.7rem] font-medium text-slate-300 whitespace-normal break-keep sm:text-xs">
+                <span className="weather-badge rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.7rem] font-medium text-slate-300 whitespace-normal break-keep sm:self-auto sm:text-xs">
                   {weather?.location.timezone ?? favorite.timezone}
                 </span>
               </div>
@@ -193,21 +199,14 @@ export function FavoriteDetailPage() {
           </div>
 
           <aside className="weather-glass-card rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7 lg:sticky lg:top-5">
-            <div className="weather-soft-panel rounded-[1.5rem] px-5 py-5">
-              <p className="text-xs font-medium uppercase tracking-[0.28em] text-slate-400">Saved Place</p>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white">{favorite.alias}</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-300">{favorite.label}</p>
-              <p className="mt-3 text-sm text-slate-400">{favoritePath}</p>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Place Details</p>
+                <p className="text-xs font-medium tracking-[0.2em] text-slate-400">장소 정보</p>
                 <h2 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
                   장소 상세 정보
                 </h2>
               </div>
-              <span className="max-w-full rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.7rem] font-medium text-slate-300 whitespace-normal break-keep sm:text-xs">
+              <span className="weather-badge rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.7rem] font-medium text-slate-300 whitespace-normal break-keep sm:self-auto sm:text-xs">
                 저장된 즐겨찾기
               </span>
             </div>
@@ -277,7 +276,7 @@ export function FavoriteDetailPage() {
   )
 }
 
-function getStatusLabel({
+function getStatusNotice({
   isLoading,
   isFetching,
   hasError,
@@ -287,21 +286,46 @@ function getStatusLabel({
   hasError: boolean
 }) {
   if (hasError) {
-    return '예보 확인 필요'
+    return {
+      label: '예보 확인 필요',
+      tone: 'error' as const,
+    }
   }
 
   if (isLoading) {
-    return '날씨 불러오는 중'
+    return {
+      label: '예보 불러오는 중',
+      tone: 'default' as const,
+    }
   }
 
   if (isFetching) {
-    return '날씨 갱신 중'
+    return {
+      label: '예보 갱신 중',
+      tone: 'default' as const,
+    }
   }
 
-  return '최신 예보 준비됨'
+  return null
 }
 
 function formatFavoritePath(districtFullName: string, districtName: string) {
   const path = districtFullName || districtName
   return path ? path.replaceAll('-', ' · ') : '경로 정보 없음'
+}
+
+function getHeroDescription(label: string, favoritePath: string, alias: string) {
+  const normalizedLabel = normalizeLocationText(label)
+  const normalizedPath = normalizeLocationText(favoritePath)
+  const normalizedAlias = normalizeLocationText(alias)
+
+  if (!normalizedLabel || normalizedLabel === normalizedPath || normalizedLabel === normalizedAlias) {
+    return null
+  }
+
+  return label
+}
+
+function normalizeLocationText(value: string) {
+  return value.replace(/[·.\-\s]/g, '').trim()
 }

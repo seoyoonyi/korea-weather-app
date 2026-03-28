@@ -134,17 +134,17 @@ export function HomePage() {
     : '데이터 대기 중'
   const weatherSymbol = activeWeather ? getWeatherSymbol(activeWeather.current.weatherCode) : '○'
   const heroLocationContent = getHeroLocationContent(activeLocationLabel)
-  const heroEyebrow = isSearchingPlace ? '검색한 장소' : '나의 위치'
+  const heroEyebrow = isSearchingPlace ? '검색한 장소' : '현재 위치'
 
   return (
     <main className="weather-night-shell min-h-screen px-4 py-4 text-slate-50 sm:px-5 sm:py-5 md:px-8 lg:px-10">
       <div className="pointer-events-none absolute left-[8%] top-[26rem] h-56 w-56 rounded-full bg-sky-300/8 blur-3xl" />
       <div className="pointer-events-none absolute bottom-20 right-[12%] h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-[1380px]">
+      <div className="relative mx-auto w-full min-w-0 max-w-[1380px]">
         <header className="flex flex-col gap-4 py-2 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.34em] text-slate-400">Weather App</p>
+            <p className="text-xs font-medium tracking-[0.2em] text-slate-400">Korea Weather</p>
           </div>
 
           <div className="relative z-40 w-full lg:max-w-[42rem]">
@@ -211,7 +211,7 @@ export function HomePage() {
                 disabled={!selectedFavorite && favoriteButtonState.disabled}
                 onClick={selectedFavorite ? () => removeFavorite(selectedFavorite.id) : handleAddFavorite}
               >
-                {selectedFavorite ? '즐겨찾기에서 삭제' : favoriteButtonState.label}
+                {selectedFavorite ? '즐겨찾기 삭제' : favoriteButtonState.label}
               </button>
               <p className="text-sm text-slate-300">{favoriteActionMessage}</p>
             </div>
@@ -248,12 +248,12 @@ export function HomePage() {
             <section className="weather-glass-card w-full min-w-0 overflow-hidden rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Detailed Weather</p>
+                  <p className="text-xs font-medium tracking-[0.2em] text-slate-400">상세 날씨</p>
                   <h3 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
                     상세 날씨 정보
                   </h3>
                 </div>
-                <span className="max-w-full rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.7rem] font-medium text-slate-300 whitespace-normal break-keep sm:text-xs">
+                <span className="weather-badge rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.7rem] font-medium text-slate-300 whitespace-normal break-keep sm:self-auto sm:text-xs">
                   {activeLocationLabel}
                 </span>
               </div>
@@ -314,7 +314,7 @@ export function HomePage() {
         <section className="mt-6 weather-glass-card w-full min-w-0 overflow-hidden rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Favorites</p>
+              <p className="text-xs font-medium tracking-[0.2em] text-slate-400">즐겨찾기</p>
               <h3 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
                 즐겨찾기 장소
               </h3>
@@ -386,7 +386,7 @@ function getSearchStatusMessage({
   }
 
   if (selectedDistrict && !selectedDistrictCoordinates) {
-    return '해당 장소의 정보가 제공되지 않습니다.'
+    return '선택한 장소의 정보를 확인할 수 없습니다.'
   }
 
   if (isSearchSelectionLocked) {
@@ -414,26 +414,26 @@ function getFavoriteActionMessage({
   selectedDistrictCoordinatesLoading: boolean
 }) {
   if (!selectedDistrict) {
-    return '장소를 선택하면 즐겨찾기에 추가할 수 있습니다.'
+    return '검색으로 장소를 선택하면 즐겨찾기에 저장할 수 있습니다.'
   }
 
   if (selectedFavorite) {
-    return '이미 즐겨찾기에 추가된 장소입니다.'
+    return '이미 즐겨찾기에 저장된 장소입니다.'
   }
 
   if (selectedDistrictCoordinatesLoading) {
-    return '즐겨찾기 추가를 위해 장소 좌표를 확인하는 중입니다.'
+    return '선택한 장소의 좌표를 확인하는 중입니다.'
   }
 
   if (!selectedDistrictCoordinates) {
-    return '해당 장소의 정보가 제공되지 않아 즐겨찾기에 추가할 수 없습니다.'
+    return '선택한 장소는 즐겨찾기에 저장할 수 없습니다.'
   }
 
   if (isFavoriteLimitReached) {
-    return '즐겨찾기는 최대 6개까지 추가할 수 있습니다.'
+    return '즐겨찾기는 최대 6개까지 저장할 수 있습니다.'
   }
 
-  return '선택한 장소를 즐겨찾기에 추가할 수 있습니다.'
+  return '선택한 장소를 즐겨찾기에 저장할 수 있습니다.'
 }
 
 function getHeroLocationContent(value: string) {
@@ -484,7 +484,7 @@ function getFavoriteButtonState({
 }) {
   if (selectedFavorite) {
     return {
-      label: '즐겨찾기에서 삭제',
+      label: '즐겨찾기 삭제',
       disabled: false,
     }
   }
@@ -505,20 +505,20 @@ function getFavoriteButtonState({
 
   if (!selectedDistrictCoordinates) {
     return {
-      label: '추가할 수 없음',
+      label: '저장할 수 없음',
       disabled: true,
     }
   }
 
   if (isFavoriteLimitReached) {
     return {
-      label: '즐겨찾기 최대 6개',
+      label: '최대 6개까지 저장',
       disabled: true,
     }
   }
 
   return {
-    label: '즐겨찾기에 추가',
+    label: '즐겨찾기에 저장',
     disabled: false,
   }
 }
@@ -541,7 +541,7 @@ function renderWeatherMessage({
   if (isSearchingPlace && selectedDistrict && !selectedDistrictCoordinates && !selectedDistrictCoordinatesError) {
     return (
       <p className="mx-auto mt-8 max-w-xl rounded-full border border-amber-200/20 bg-amber-500/10 px-5 py-3 text-sm text-amber-100 backdrop-blur-xl">
-        해당 장소의 정보가 제공되지 않습니다.
+        선택한 장소의 정보를 확인할 수 없습니다.
       </p>
     )
   }
