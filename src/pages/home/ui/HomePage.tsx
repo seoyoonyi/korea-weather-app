@@ -1,4 +1,5 @@
-import { useDeferredValue, useState } from 'react'
+import { useDeferredValue, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { useDistrictCoords } from '@/entities/district/api/useDistrictCoords'
 import { useDistrictTree } from '@/entities/district/api/useDistrictTree'
 import type { DistrictNode } from '@/entities/district/model/types'
@@ -24,11 +25,14 @@ import { HourlyTemperatureSection } from '@/shared/ui/HourlyTemperatureSection'
 import { InfoRow } from '@/shared/ui/InfoRow'
 
 const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_WEATHER_TIMEZONE
+const SELECTED_DISTRICT_SEARCH_PARAM = 'district'
 
 export function HomePage() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [selectedDistrict, setSelectedDistrict] = useState<DistrictNode | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
   const deferredSearchKeyword = useDeferredValue(searchKeyword.trim())
+  const selectedDistrictParam = searchParams.get(SELECTED_DISTRICT_SEARCH_PARAM)?.trim() ?? ''
 
   const {
     favorites,
@@ -40,6 +44,61 @@ export function HomePage() {
   const currentLocation = useCurrentLocation()
   const { data: districtTree, isLoading: isDistrictTreeLoading } = useDistrictTree()
   const isSearchingPlace = Boolean(selectedDistrict)
+
+  useEffect(() => {
+    if (!districtTree) {
+      return
+    }
+
+    if (!selectedDistrictParam) {
+      setSelectedDistrict((currentSelectedDistrict) => {
+        if (!currentSelectedDistrict) {
+          return currentSelectedDistrict
+        }
+
+        setSearchKeyword((currentKeyword) =>
+          normalizeSearchValue(currentKeyword) ===
+          normalizeSearchValue(currentSelectedDistrict.fullName)
+            ? ''
+            : currentKeyword,
+        )
+
+        return null
+      })
+      return
+    }
+
+    const matchedDistrict = districtTree.allNodes.find(
+      (district) => district.fullName === selectedDistrictParam,
+    )
+
+    if (!matchedDistrict) {
+      setSelectedDistrict(null)
+      setSearchKeyword('')
+      setSearchParams(
+        (currentSearchParams) => {
+          const nextSearchParams = new URLSearchParams(currentSearchParams)
+          nextSearchParams.delete(SELECTED_DISTRICT_SEARCH_PARAM)
+          return nextSearchParams
+        },
+        { replace: true },
+      )
+      return
+    }
+
+    setSelectedDistrict((currentSelectedDistrict) =>
+      currentSelectedDistrict?.fullName === matchedDistrict.fullName
+        ? currentSelectedDistrict
+        : matchedDistrict,
+    )
+
+    const formattedDistrictLabel = formatDistrictLabel(matchedDistrict.fullName)
+    setSearchKeyword((currentKeyword) =>
+      normalizeSearchValue(currentKeyword) === normalizeSearchValue(formattedDistrictLabel)
+        ? currentKeyword
+        : formattedDistrictLabel,
+    )
+  }, [districtTree, selectedDistrictParam, setSearchParams])
 
   const isSearchSelectionLocked =
     selectedDistrict !== null &&
@@ -161,11 +220,24 @@ export function HomePage() {
                   normalizeSearchValue(nextValue) !== normalizeSearchValue(selectedDistrict.fullName)
                 ) {
                   setSelectedDistrict(null)
+                  setSearchParams(
+                    (currentSearchParams) => {
+                      const nextSearchParams = new URLSearchParams(currentSearchParams)
+                      nextSearchParams.delete(SELECTED_DISTRICT_SEARCH_PARAM)
+                      return nextSearchParams
+                    },
+                    { replace: true },
+                  )
                 }
               }}
               onSelect={(district) => {
                 setSelectedDistrict(district)
                 setSearchKeyword(formatDistrictLabel(district.fullName))
+                setSearchParams((currentSearchParams) => {
+                  const nextSearchParams = new URLSearchParams(currentSearchParams)
+                  nextSearchParams.set(SELECTED_DISTRICT_SEARCH_PARAM, district.fullName)
+                  return nextSearchParams
+                })
               }}
             />
           </div>
