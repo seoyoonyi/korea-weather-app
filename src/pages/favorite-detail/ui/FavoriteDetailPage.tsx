@@ -217,14 +217,14 @@ export function FavoriteDetailPage() {
                 value={favorite.alias}
                 className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
                 labelClassName="text-slate-300"
-                valueClassName="text-white"
+                valueClassName="text-lg leading-tight text-white sm:text-xl"
               />
               <InfoRow
                 label="위치 라벨"
                 value={favorite.label}
                 className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
                 labelClassName="text-slate-300"
-                valueClassName="text-white"
+                valueClassName="text-lg leading-tight text-white sm:text-xl"
               />
               <InfoRow
                 label="행정구역 경로"
@@ -259,14 +259,14 @@ export function FavoriteDetailPage() {
                 value={today ? `${today.precipitationProbabilityMax}%` : '--'}
                 className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
                 labelClassName="text-slate-300"
-                valueClassName="text-2xl text-white sm:text-3xl"
+                valueClassName="text-lg leading-tight text-white sm:text-xl"
               />
               <InfoRow
                 label="풍속"
                 value={weather ? `${Math.round(weather.current.windSpeed)} km/h` : '--'}
                 className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
                 labelClassName="text-slate-300"
-                valueClassName="text-2xl text-white sm:text-3xl"
+                valueClassName="text-lg leading-tight text-white sm:text-xl"
               />
             </div>
           </aside>
