@@ -1,9 +1,12 @@
+import { useLayoutEffect } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
-import { useFavorites } from '@/features/favorite/model/FavoritesProvider'
 import { useWeatherForecastQuery } from '@/entities/weather/api/useWeatherForecastQuery'
 import { getWeatherConditionLabel } from '@/entities/weather/model/getWeatherConditionLabel'
+import { useFavorites } from '@/features/favorite/model/FavoritesProvider'
 import { DEFAULT_WEATHER_TIMEZONE } from '@/shared/config/api'
-import { formatDateTime, formatHour, getTodayHourlyTemperatures } from '@/shared/lib/weather'
+import { formatDateTime, getTodayHourlyTemperatures } from '@/shared/lib/weather'
+import { getWeatherSymbol } from '@/shared/lib/weatherSymbol'
+import { HourlyTemperatureSection } from '@/shared/ui/HourlyTemperatureSection'
 import { InfoRow } from '@/shared/ui/InfoRow'
 import { MetricCard } from '@/shared/ui/MetricCard'
 
@@ -13,6 +16,14 @@ export function FavoriteDetailPage() {
   const { favoriteId } = useParams()
   const { findFavoriteById } = useFavorites()
   const favorite = favoriteId ? findFavoriteById(favoriteId) : undefined
+
+  useLayoutEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'auto',
+    })
+  }, [favoriteId])
 
   const weatherQuery = useWeatherForecastQuery(
     {
@@ -31,16 +42,27 @@ export function FavoriteDetailPage() {
 
   if (!favorite) {
     return (
-      <main className="min-h-screen bg-slate-100 px-6 py-12 text-slate-950 lg:px-10">
-        <div className="mx-auto max-w-3xl rounded-[2rem] border border-white/70 bg-white/90 p-8 shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
-          <p className="text-sm font-medium uppercase tracking-[0.22em] text-sky-700">Favorite Detail</p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">즐겨찾기 장소를 찾을 수 없습니다.</h1>
-          <Link
-            className="mt-6 inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700"
-            to="/"
-          >
-            홈으로 돌아가기
-          </Link>
+      <main className="weather-night-shell min-h-screen px-4 py-6 text-slate-50 sm:px-5 md:px-8 lg:px-10">
+        <div className="pointer-events-none absolute left-[10%] top-[18rem] h-56 w-56 rounded-full bg-sky-300/8 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-20 right-[12%] h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-3xl pt-10 sm:pt-16">
+          <section className="weather-glass-card rounded-[2rem] p-8 sm:p-10">
+            <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Favorite Detail</p>
+            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+              즐겨찾기 장소를 찾을 수 없습니다.
+            </h1>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">
+              저장된 장소가 삭제되었거나 잘못된 경로로 들어온 것 같아요. 홈에서 다시 장소를 선택해 주세요.
+            </p>
+            <Link
+              className="mt-8 inline-flex rounded-full border border-white/10 bg-white/10 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/14"
+              aria-label="홈으로 돌아가기"
+              to="/"
+            >
+              {'<-'}
+            </Link>
+          </section>
         </div>
       </main>
     )
@@ -49,107 +71,204 @@ export function FavoriteDetailPage() {
   const weather = weatherQuery.data
   const today = weather?.daily[0]
   const hourlyTemperatures = weather ? getTodayHourlyTemperatures(weather.hourly, today?.date) : []
+  const weatherConditionLabel = weather ? getWeatherConditionLabel(weather.current.weatherCode) : '데이터 대기 중'
+  const weatherSymbol = weather ? getWeatherSymbol(weather.current.weatherCode) : '○'
+  const favoritePath = formatFavoritePath(favorite.districtFullName, favorite.districtName)
+  const statusLabel = getStatusLabel({
+    isLoading: weatherQuery.isLoading,
+    isFetching: weatherQuery.isFetching,
+    hasError: Boolean(weatherQuery.error),
+  })
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.18),_transparent_32%),linear-gradient(180deg,_#f8fafc_0%,_#e0f2fe_100%)] px-6 py-10 text-slate-950 lg:px-10">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <section className="rounded-[2rem] border border-white/70 bg-white/85 p-8 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <Link className="text-sm font-medium text-sky-700 hover:text-sky-900" to="/">
-                홈으로 돌아가기
-              </Link>
-              <p className="mt-4 text-sm font-medium uppercase tracking-[0.24em] text-sky-700">
-                Favorite Detail
-              </p>
-              <h1 className="mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">{favorite.alias}</h1>
-              <p className="mt-3 text-base leading-7 text-slate-600">{favorite.label}</p>
-              <p className="mt-1 text-sm text-slate-500">
-                {formatFavoritePath(favorite.districtFullName, favorite.districtName)}
-              </p>
+    <main className="weather-night-shell min-h-screen px-4 py-4 text-slate-50 sm:px-5 sm:py-5 md:px-8 lg:px-10">
+      <div className="pointer-events-none absolute left-[8%] top-[24rem] h-56 w-56 rounded-full bg-sky-300/8 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-20 right-[12%] h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl" />
+
+      <div className="relative mx-auto w-full max-w-[1380px]">
+        <header className="flex flex-col gap-4 py-2 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <Link
+              className="inline-flex items-center rounded-full border border-white/10 bg-white/8 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-white/12"
+              aria-label="홈으로 돌아가기"
+              to="/"
+            >
+              {'<-'}
+            </Link>
+            <p className="mt-4 text-xs font-medium uppercase tracking-[0.34em] text-slate-400">
+              Favorite Detail
+            </p>
+          </div>
+
+          <div className="weather-soft-panel inline-flex self-start rounded-full px-4 py-3 text-sm text-slate-200">
+            <span className="text-slate-400">상태</span>
+            <span className="ml-3 font-medium text-white">{statusLabel}</span>
+          </div>
+        </header>
+
+        <section className="pb-8 pt-9 text-center sm:pb-12 sm:pt-12 md:pb-16 md:pt-16">
+          <p className="text-sm font-medium text-slate-300">저장된 장소</p>
+          <p className="mx-auto mt-4 max-w-[34rem] text-sm text-slate-400">{favoritePath}</p>
+          <h1 className="mx-auto mt-3 max-w-[12ch] break-keep text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl md:text-7xl">
+            {favorite.alias}
+          </h1>
+          <p className="mx-auto mt-4 max-w-[36rem] text-sm leading-6 text-slate-300 sm:text-base">
+            {favorite.label}
+          </p>
+          <p className="mt-4 text-[4.4rem] font-extralight leading-none tracking-[-0.08em] text-white sm:mt-5 sm:text-[6.5rem] md:text-[9rem]">
+            {weather ? `${Math.round(weather.current.temperature)}°` : '--'}
+          </p>
+          <div className="mt-3 flex flex-col items-center gap-3 sm:mt-4">
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
+              <span className="text-4xl leading-none text-slate-100 sm:text-5xl">{weatherSymbol}</span>
+              <div className="text-center sm:text-left">
+                <p className="text-xl font-medium text-white sm:text-2xl">{weatherConditionLabel}</p>
+                <p className="mt-1 text-sm text-slate-300 sm:text-base">
+                  체감 온도 {weather ? `${Math.round(weather.current.apparentTemperature)}°` : '--'}
+                </p>
+              </div>
             </div>
-            <div className="rounded-3xl bg-slate-950 px-5 py-4 text-slate-50">
-              <p className="text-sm text-slate-300">상태</p>
-              <p className="mt-2 text-lg font-medium">
-                {weatherQuery.isLoading ? '날씨 불러오는 중' : weatherQuery.isFetching ? '날씨 갱신 중' : '최신 예보 준비됨'}
-              </p>
-            </div>
+            <p className="text-lg font-medium text-slate-200 sm:text-xl">
+              최고 {today ? `${Math.round(today.temperatureMax)}°` : '--'} / 최저{' '}
+              {today ? `${Math.round(today.temperatureMin)}°` : '--'}
+            </p>
           </div>
 
           {weatherQuery.error ? (
-            <p className="mt-6 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p className="mx-auto mt-8 max-w-xl rounded-full border border-rose-200/20 bg-rose-500/12 px-5 py-3 text-sm text-rose-100 backdrop-blur-xl">
               {weatherQuery.error.message}
             </p>
           ) : null}
-
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            <MetricCard
-              label="현재 기온"
-              value={weather ? `${Math.round(weather.current.temperature)}°` : '--'}
-              helper={weather ? getWeatherConditionLabel(weather.current.weatherCode) : '데이터 대기 중'}
-            />
-            <MetricCard
-              label="당일 최저"
-              value={today ? `${Math.round(today.temperatureMin)}°` : '--'}
-              helper={today ? `${today.date}` : '데이터 대기 중'}
-            />
-            <MetricCard
-              label="당일 최고"
-              value={today ? `${Math.round(today.temperatureMax)}°` : '--'}
-              helper={weather ? `체감 ${Math.round(weather.current.apparentTemperature)}°` : '데이터 대기 중'}
-            />
-          </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-[2rem] border border-white/70 bg-white/85 p-8 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium uppercase tracking-[0.22em] text-sky-700">Hourly Temperature</p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight">시간대별 기온</h2>
+        <section className="grid w-full min-w-0 gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(340px,0.92fr)] lg:items-start">
+          <div className="min-w-0 space-y-6">
+            <section className="weather-glass-card rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Quick Metrics</p>
+                  <h2 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                    핵심 날씨 지표
+                  </h2>
+                </div>
+                <span className="max-w-full rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.7rem] font-medium text-slate-300 whitespace-normal break-keep sm:text-xs">
+                  {weather?.location.timezone ?? favorite.timezone}
+                </span>
               </div>
-              <p className="text-sm text-slate-500">{today ? `${today.date} 기준` : '오늘 예보 준비 중'}</p>
-            </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {hourlyTemperatures.length > 0
-                ? hourlyTemperatures.map((hour) => (
-                    <article
-                      key={hour.time}
-                      className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-5"
-                    >
-                      <p className="text-sm text-slate-500">{formatHour(hour.time, browserTimeZone)}</p>
-                      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-                        {Math.round(hour.temperature)}°
-                      </p>
-                    </article>
-                  ))
-                : Array.from({ length: 8 }).map((_, index) => (
-                    <div key={index} className="h-28 animate-pulse rounded-3xl bg-slate-100" />
-                  ))}
-            </div>
+              <div className="mt-5 grid gap-3 sm:mt-6 sm:grid-cols-3">
+                <MetricCard
+                  label="현재 기온"
+                  value={weather ? `${Math.round(weather.current.temperature)}°` : '--'}
+                  helper={weatherConditionLabel}
+                  tone="glass"
+                  className="rounded-[1.35rem] sm:rounded-[1.7rem]"
+                />
+                <MetricCard
+                  label="당일 최저"
+                  value={today ? `${Math.round(today.temperatureMin)}°` : '--'}
+                  helper={today ? `${today.date}` : '데이터 대기 중'}
+                  tone="glass"
+                  className="rounded-[1.35rem] sm:rounded-[1.7rem]"
+                />
+                <MetricCard
+                  label="당일 최고"
+                  value={today ? `${Math.round(today.temperatureMax)}°` : '--'}
+                  helper={weather ? `체감 ${Math.round(weather.current.apparentTemperature)}°` : '데이터 대기 중'}
+                  tone="glass"
+                  className="rounded-[1.35rem] sm:rounded-[1.7rem]"
+                />
+              </div>
+            </section>
+
+            <HourlyTemperatureSection
+              dateLabel={today ? `${today.date} 기준` : undefined}
+              hourlyTemperatures={hourlyTemperatures}
+              currentTemperature={weather?.current.temperature}
+              apparentTemperature={weather?.current.apparentTemperature}
+              minTemperature={today?.temperatureMin}
+              maxTemperature={today?.temperatureMax}
+              timeZone={weather?.location.timezone ?? favorite.timezone ?? browserTimeZone}
+            />
           </div>
 
-          <aside className="rounded-[2rem] border border-slate-200 bg-slate-950 p-8 text-slate-50 shadow-[0_24px_80px_rgba(2,6,23,0.18)]">
-            <p className="text-sm uppercase tracking-[0.24em] text-sky-300">Details</p>
-            <div className="mt-6 space-y-5">
-              <InfoRow label="표시 이름" value={favorite.alias} />
-              <InfoRow label="위치 라벨" value={favorite.label} />
+          <aside className="weather-glass-card rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7 lg:sticky lg:top-5">
+            <div className="weather-soft-panel rounded-[1.5rem] px-5 py-5">
+              <p className="text-xs font-medium uppercase tracking-[0.28em] text-slate-400">Saved Place</p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white">{favorite.alias}</h2>
+              <p className="mt-3 text-sm leading-6 text-slate-300">{favorite.label}</p>
+              <p className="mt-3 text-sm text-slate-400">{favoritePath}</p>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Place Details</p>
+                <h2 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                  장소 상세 정보
+                </h2>
+              </div>
+              <span className="max-w-full rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.7rem] font-medium text-slate-300 whitespace-normal break-keep sm:text-xs">
+                저장된 즐겨찾기
+              </span>
+            </div>
+
+            <div className="mt-5 grid gap-3 min-[560px]:grid-cols-2 sm:mt-6 sm:gap-4">
+              <InfoRow
+                label="표시 이름"
+                value={favorite.alias}
+                className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
+                labelClassName="text-slate-300"
+                valueClassName="text-white"
+              />
+              <InfoRow
+                label="위치 라벨"
+                value={favorite.label}
+                className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
+                labelClassName="text-slate-300"
+                valueClassName="text-white"
+              />
               <InfoRow
                 label="행정구역 경로"
-                value={formatFavoritePath(favorite.districtFullName, favorite.districtName)}
+                value={favoritePath}
+                className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
+                labelClassName="text-slate-300"
+                valueClassName="text-lg leading-tight text-white sm:text-xl"
               />
               <InfoRow
                 label="좌표"
                 value={`위도 ${favorite.latitude.toFixed(4)}, 경도 ${favorite.longitude.toFixed(4)}`}
+                className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
+                labelClassName="text-slate-300"
+                valueClassName="text-lg leading-tight text-white sm:text-xl"
               />
-              <InfoRow label="시간대" value={weather?.location.timezone ?? favorite.timezone} />
+              <InfoRow
+                label="시간대"
+                value={weather?.location.timezone ?? favorite.timezone}
+                className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
+                labelClassName="text-slate-300"
+                valueClassName="break-all text-lg leading-tight text-white sm:text-xl"
+              />
               <InfoRow
                 label="업데이트 시각"
                 value={weather ? formatDateTime(weather.current.time, browserTimeZone) : '--'}
+                className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
+                labelClassName="text-slate-300"
+                valueClassName="text-lg leading-tight text-white sm:text-xl"
               />
-              <InfoRow label="강수 확률" value={today ? `${today.precipitationProbabilityMax}%` : '--'} />
-              <InfoRow label="풍속" value={weather ? `${Math.round(weather.current.windSpeed)} km/h` : '--'} />
+              <InfoRow
+                label="강수 확률"
+                value={today ? `${today.precipitationProbabilityMax}%` : '--'}
+                className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
+                labelClassName="text-slate-300"
+                valueClassName="text-2xl text-white sm:text-3xl"
+              />
+              <InfoRow
+                label="풍속"
+                value={weather ? `${Math.round(weather.current.windSpeed)} km/h` : '--'}
+                className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
+                labelClassName="text-slate-300"
+                valueClassName="text-2xl text-white sm:text-3xl"
+              />
             </div>
           </aside>
         </section>
@@ -158,7 +277,31 @@ export function FavoriteDetailPage() {
   )
 }
 
+function getStatusLabel({
+  isLoading,
+  isFetching,
+  hasError,
+}: {
+  isLoading: boolean
+  isFetching: boolean
+  hasError: boolean
+}) {
+  if (hasError) {
+    return '예보 확인 필요'
+  }
+
+  if (isLoading) {
+    return '날씨 불러오는 중'
+  }
+
+  if (isFetching) {
+    return '날씨 갱신 중'
+  }
+
+  return '최신 예보 준비됨'
+}
+
 function formatFavoritePath(districtFullName: string, districtName: string) {
   const path = districtFullName || districtName
-  return path ? path.replaceAll('-', ' > ') : '경로 정보 없음'
+  return path ? path.replaceAll('-', ' · ') : '경로 정보 없음'
 }

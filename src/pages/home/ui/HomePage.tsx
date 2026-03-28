@@ -18,8 +18,9 @@ import {
   formatDistrictLabel,
   getCompactAdministrativeLabel,
 } from '@/shared/lib/formatDistrictLabel'
-import { formatDateTime, formatHour, getTodayHourlyTemperatures } from '@/shared/lib/weather'
+import { formatDateTime, getTodayHourlyTemperatures } from '@/shared/lib/weather'
 import { getWeatherSymbol } from '@/shared/lib/weatherSymbol'
+import { HourlyTemperatureSection } from '@/shared/ui/HourlyTemperatureSection'
 import { InfoRow } from '@/shared/ui/InfoRow'
 
 const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_WEATHER_TIMEZONE
@@ -217,49 +218,25 @@ export function HomePage() {
           })}
         </section>
 
-        <section className="grid w-full min-w-0 gap-4 sm:gap-6 lg:items-stretch lg:grid-cols-[minmax(300px,0.9fr)_minmax(0,1.1fr)]">
-          <div className="min-w-0 space-y-6 lg:h-full">
-            <section className="weather-glass-card relative z-10 w-full min-w-0 overflow-hidden rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7 lg:flex lg:h-full lg:flex-col">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Hourly Forecast</p>
-                  <h3 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                    시간대별 일기예보
-                  </h3>
-                </div>
-                <p className="text-sm text-slate-400">{today ? `${today.date} 기준` : '예보 준비 중'}</p>
-              </div>
-
-              <div className="mt-5 overflow-x-auto sm:mt-6 lg:flex lg:flex-1 lg:items-center">
-                <div className="flex min-w-max gap-3 pb-2 lg:pb-0">
-                  {hourlyTemperatures.length > 0
-                    ? hourlyTemperatures.map((hour) => (
-                        <article
-                          key={hour.time}
-                          className="min-w-[96px] rounded-[1.35rem] border border-white/10 bg-white/8 px-3 py-4 text-center backdrop-blur-xl sm:min-w-[122px] sm:rounded-[1.6rem] sm:px-4 sm:py-5"
-                        >
-                          <p className="text-xs font-medium text-slate-300 sm:text-sm">
-                            {formatHour(hour.time, browserTimeZone)}
-                          </p>
-                          <p className="mt-3 text-2xl leading-none text-slate-100 sm:mt-4 sm:text-3xl">☁</p>
-                          <p className="mt-3 text-2xl font-semibold tracking-tight text-white sm:mt-4 sm:text-3xl">
-                            {Math.round(hour.temperature)}°
-                          </p>
-                        </article>
-                      ))
-                    : Array.from({ length: 8 }).map((_, index) => (
-                        <div
-                          key={index}
-                          className="h-[142px] min-w-[96px] animate-pulse rounded-[1.35rem] bg-white/8 sm:h-[164px] sm:min-w-[122px] sm:rounded-[1.6rem]"
-                        />
-                      ))}
-                </div>
-              </div>
-            </section>
+        <section className="grid w-full min-w-0 gap-4 sm:gap-6 lg:items-start lg:grid-cols-[minmax(300px,0.9fr)_minmax(0,1.1fr)]">
+          <div className="min-w-0 space-y-6">
+            <HourlyTemperatureSection
+              dateLabel={today ? `${today.date} 기준` : undefined}
+              hourlyTemperatures={hourlyTemperatures}
+              currentTemperature={activeWeather?.current.temperature}
+              apparentTemperature={activeWeather?.current.apparentTemperature}
+              minTemperature={today?.temperatureMin}
+              maxTemperature={today?.temperatureMax}
+              timeZone={
+                activeWeather?.location.timezone ??
+                selectedDistrictCoordinates.data?.timezone ??
+                browserTimeZone
+              }
+            />
           </div>
 
-          <div className="min-w-0 space-y-6 lg:h-full">
-            <section className="weather-glass-card w-full min-w-0 overflow-hidden rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7 lg:h-full">
+          <div className="min-w-0 space-y-6">
+            <section className="weather-glass-card w-full min-w-0 overflow-hidden rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Detailed Weather</p>

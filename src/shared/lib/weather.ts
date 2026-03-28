@@ -2,7 +2,7 @@ import type { HourlyWeatherForecast } from '@/entities/weather/model/types'
 
 export function getTodayHourlyTemperatures(hourly: HourlyWeatherForecast[], date?: string) {
   if (!date) {
-    return hourly.slice(0, 8)
+    return hourly.slice(0, 24)
   }
 
   return hourly.filter((item) => item.time.startsWith(date)).slice(0, 24)
