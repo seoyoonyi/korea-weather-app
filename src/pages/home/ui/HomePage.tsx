@@ -84,14 +84,6 @@ export function HomePage() {
     selectedDistrictCoordinates.data?.label,
     currentLocation.label,
   )
-  const activeCoordinates = isSearchingPlace
-    ? selectedDistrictCoordinates.data
-      ? {
-          latitude: selectedDistrictCoordinates.data.latitude,
-          longitude: selectedDistrictCoordinates.data.longitude,
-        }
-      : null
-    : currentLocation.coordinates
   const today = activeWeather?.daily[0]
   const hourlyTemperatures = activeWeather
     ? getTodayHourlyTemperatures(activeWeather.hourly, today?.date)
@@ -208,6 +200,23 @@ export function HomePage() {
             </p>
           </div>
 
+          {isSearchingPlace ? (
+            <div className="mt-6 flex flex-col items-center gap-3">
+              <button
+                className={`inline-flex min-w-[220px] items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition sm:min-w-[240px] sm:text-base ${
+                  selectedFavorite
+                    ? 'border border-rose-300/30 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20'
+                    : 'border border-transparent bg-white text-slate-950 hover:bg-slate-100 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/10 disabled:text-slate-400'
+                }`}
+                disabled={!selectedFavorite && favoriteButtonState.disabled}
+                onClick={selectedFavorite ? () => removeFavorite(selectedFavorite.id) : handleAddFavorite}
+              >
+                {selectedFavorite ? '즐겨찾기에서 삭제' : favoriteButtonState.label}
+              </button>
+              <p className="text-sm text-slate-300">{favoriteActionMessage}</p>
+            </div>
+          ) : null}
+
           {renderWeatherMessage({
             isSearchingPlace,
             selectedDistrict,
@@ -309,71 +318,12 @@ export function HomePage() {
               <h3 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
                 즐겨찾기 장소
               </h3>
+              <p className="mt-3 text-sm text-slate-300">
+                즐겨찾기는 최대 {FAVORITES_LIMIT}개까지 저장할 수 있으며 카드를 누르면 상세 페이지로 이동합니다.
+              </p>
             </div>
-            <p className="text-sm text-slate-300">
-              최대 6개까지 추가할 수 있으며 카드를 누르면 상세 페이지로 이동합니다.
-            </p>
-          </div>
-
-          <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="rounded-[1.8rem] border border-white/10 bg-white/6 p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.28em] text-slate-400">Selected Place</p>
-                  <h4 className="mt-3 break-keep text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                    {selectedDistrict ? activeLocationLabel : '선택된 장소 없음'}
-                  </h4>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">
-                    {selectedDistrict
-                      ? '현재 선택한 장소를 즐겨찾기에 추가하거나 목록에서 제거할 수 있습니다.'
-                      : '검색에서 장소를 선택하면 바로 즐겨찾기에 추가할 수 있습니다.'}
-                  </p>
-                </div>
-                <div className="inline-flex rounded-full border border-white/10 bg-white/8 px-4 py-2 text-sm font-medium text-slate-200">
-                  {favorites.length} / {FAVORITES_LIMIT}
-                </div>
-              </div>
-
-              {selectedDistrict ? (
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-[1.4rem] border border-white/10 bg-white/6 px-4 py-4">
-                    <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">좌표</p>
-                    <p className="mt-2 text-sm font-medium text-white">
-                      {activeCoordinates
-                        ? `${activeCoordinates.latitude.toFixed(4)}, ${activeCoordinates.longitude.toFixed(4)}`
-                        : '좌표 확인 중'}
-                    </p>
-                  </div>
-                  <div className="rounded-[1.4rem] border border-white/10 bg-white/6 px-4 py-4">
-                    <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">상태</p>
-                    <p className="mt-2 text-sm font-medium text-white">{favoriteActionMessage}</p>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="rounded-[1.8rem] border border-white/10 bg-white/6 p-5">
-              <p className="text-xs font-medium uppercase tracking-[0.28em] text-slate-400">Action</p>
-              <div className="mt-4">
-                {selectedFavorite ? (
-                  <button
-                    className="w-full rounded-full border border-rose-300/30 bg-rose-500/10 px-4 py-4 text-base font-medium text-rose-100 transition hover:bg-rose-500/20"
-                    onClick={() => removeFavorite(selectedFavorite.id)}
-                  >
-                    즐겨찾기에서 삭제
-                  </button>
-                ) : (
-                  <button
-                    className="w-full rounded-full border border-transparent bg-white px-4 py-4 text-base font-medium text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/10 disabled:text-slate-400"
-                    disabled={favoriteButtonState.disabled}
-                    onClick={handleAddFavorite}
-                  >
-                    {favoriteButtonState.label}
-                  </button>
-                )}
-              </div>
-
-              <p className="mt-4 text-sm leading-6 text-slate-300">{favoriteActionMessage}</p>
+            <div className="inline-flex self-start rounded-full border border-white/10 bg-white/8 px-4 py-2 text-sm font-medium text-slate-100">
+              {favorites.length} / {FAVORITES_LIMIT}
             </div>
           </div>
 
