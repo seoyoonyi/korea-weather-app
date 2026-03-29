@@ -6,6 +6,7 @@ const SEOUL_COORDINATES: WeatherCoordinates = {
   latitude: 37.5665,
   longitude: 126.978,
 }
+const FALLBACK_WEATHER_DELAY_MS = 1200
 
 type ReverseGeocodeResponse = {
   address?: {
@@ -26,7 +27,7 @@ type ReverseGeocodeResponse = {
 }
 
 type CurrentLocationState = {
-  coordinates: WeatherCoordinates
+  coordinates: WeatherCoordinates | null
   label: string
   source: 'geolocation' | 'fallback'
   isResolving: boolean
@@ -35,23 +36,45 @@ type CurrentLocationState = {
 
 export function useCurrentLocation() {
   const [state, setState] = useState<CurrentLocationState>({
-    coordinates: SEOUL_COORDINATES,
-    label: '서울특별시',
+    coordinates: null,
+    label: '현재 위치',
     source: 'fallback',
     isResolving: true,
-    message: '현재 위치를 확인하는 동안 서울특별시 날씨를 먼저 표시합니다.',
+    message: '현재 위치를 확인하는 중입니다.',
   })
 
   useEffect(() => {
     let cancelled = false
     const abortController = new AbortController()
+    const fallbackTimerId = window.setTimeout(() => {
+      if (cancelled) {
+        return
+      }
+
+      setState((previousState) => {
+        if (previousState.coordinates) {
+          return previousState
+        }
+
+        return {
+          coordinates: SEOUL_COORDINATES,
+          label: '서울특별시',
+          source: 'fallback',
+          isResolving: true,
+          message: '현재 위치를 확인하는 동안 서울특별시 날씨를 먼저 표시합니다.',
+        }
+      })
+    }, FALLBACK_WEATHER_DELAY_MS)
 
     if (!navigator.geolocation) {
-      setState((previousState) => ({
-        ...previousState,
+      window.clearTimeout(fallbackTimerId)
+      setState({
+        coordinates: SEOUL_COORDINATES,
+        label: '서울특별시',
+        source: 'fallback',
         isResolving: false,
         message: '브라우저에서 위치 정보를 지원하지 않아 서울특별시 기준 날씨를 표시합니다.',
-      }))
+      })
       return
     }
 
@@ -59,6 +82,7 @@ export function useCurrentLocation() {
 
     return () => {
       cancelled = true
+      window.clearTimeout(fallbackTimerId)
       abortController.abort()
     }
 
@@ -78,19 +102,7 @@ export function useCurrentLocation() {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           }
-          const label = await resolveLocationLabel(coordinates, abortController.signal)
-
-          if (cancelled) {
-            return
-          }
-
-          setState({
-            coordinates,
-            label,
-            source: 'geolocation',
-            isResolving: false,
-            message: null,
-          })
+          applyGeolocationSuccess(coordinates)
         },
         (error) => {
           if (cancelled) {
@@ -98,11 +110,7 @@ export function useCurrentLocation() {
           }
 
           if (error.code === error.PERMISSION_DENIED) {
-            setState((previousState) => ({
-              ...previousState,
-              isResolving: false,
-              message: '브라우저 위치 권한이 거부되어 서울특별시 기준 날씨를 표시합니다.',
-            }))
+            applyFallbackState('브라우저 위치 권한이 거부되어 서울특별시 기준 날씨를 표시합니다.')
             return
           }
 
@@ -121,34 +129,66 @@ export function useCurrentLocation() {
                 latitude: fallbackPosition.coords.latitude,
                 longitude: fallbackPosition.coords.longitude,
               }
-              const label = await resolveLocationLabel(coordinates, abortController.signal)
-
-              if (cancelled) {
-                return
-              }
-
-              setState({
-                coordinates,
-                label,
-                source: 'geolocation',
-                isResolving: false,
-                message: null,
-              })
+              applyGeolocationSuccess(coordinates)
             },
             (fallbackError) => {
               if (cancelled) {
                 return
               }
 
-              setState((previousState) => ({
-                ...previousState,
-                isResolving: false,
-                message: getGeolocationErrorMessage(fallbackError),
-              }))
+              applyFallbackState(getGeolocationErrorMessage(fallbackError))
             },
           )
         },
       )
+    }
+
+    function applyGeolocationSuccess(coordinates: WeatherCoordinates) {
+      window.clearTimeout(fallbackTimerId)
+      setState({
+        coordinates,
+        label: '현재 위치',
+        source: 'geolocation',
+        isResolving: false,
+        message: null,
+      })
+
+      void updateResolvedLocationLabel(coordinates)
+    }
+
+    async function updateResolvedLocationLabel(coordinates: WeatherCoordinates) {
+      const label = await resolveLocationLabel(coordinates, abortController.signal)
+
+      if (cancelled) {
+        return
+      }
+
+      setState((previousState) => {
+        if (
+          previousState.source !== 'geolocation' ||
+          !previousState.coordinates ||
+          previousState.coordinates.latitude !== coordinates.latitude ||
+          previousState.coordinates.longitude !== coordinates.longitude
+        ) {
+          return previousState
+        }
+
+        return {
+          ...previousState,
+          label,
+        }
+      })
+    }
+
+    function applyFallbackState(message: string) {
+      window.clearTimeout(fallbackTimerId)
+      setState({
+        coordinates: SEOUL_COORDINATES,
+        label: '서울특별시',
+        source: 'fallback',
+        isResolving: false,
+        message,
+      })
     }
   }, [])
 

@@ -111,13 +111,18 @@ export function HomePage() {
         : []
 
   const selectedDistrictCoordinates = useDistrictCoords(selectedDistrict)
+  const currentLocationCoordinates = currentLocation.coordinates
 
-  const currentWeatherQuery = useWeatherForecastQuery({
-    ...currentLocation.coordinates,
-    timezone: browserTimeZone,
-  }, {
-    enabled: !isSearchingPlace,
-  })
+  const currentWeatherQuery = useWeatherForecastQuery(
+    {
+      latitude: currentLocationCoordinates?.latitude ?? 0,
+      longitude: currentLocationCoordinates?.longitude ?? 0,
+      timezone: browserTimeZone,
+    },
+    {
+      enabled: !isSearchingPlace && Boolean(currentLocationCoordinates),
+    },
+  )
 
   const selectedDistrictWeatherQuery = useWeatherForecastQuery(
     {
