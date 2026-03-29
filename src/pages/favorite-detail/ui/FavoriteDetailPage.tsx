@@ -5,6 +5,7 @@ import { getWeatherConditionLabel } from '@/entities/weather/model/getWeatherCon
 import { useFavorites } from '@/features/favorite/model/FavoritesProvider'
 import { DEFAULT_WEATHER_TIMEZONE } from '@/shared/config/api'
 import { formatDateTime, getTodayHourlyTemperatures } from '@/shared/lib/weather'
+import { createWeatherThemeStyle, getWeatherVisualTheme } from '@/shared/lib/weatherVisualTheme'
 import { getWeatherSymbol } from '@/shared/lib/weatherSymbol'
 import { HourlyTemperatureSection } from '@/shared/ui/HourlyTemperatureSection'
 import { InfoRow } from '@/shared/ui/InfoRow'
@@ -74,12 +75,24 @@ export function FavoriteDetailPage() {
   const weatherConditionLabel = weather ? getWeatherConditionLabel(weather.current.weatherCode) : '데이터 대기 중'
   const weatherSymbol = weather ? getWeatherSymbol(weather.current.weatherCode) : '○'
   const favoritePath = formatFavoritePath(favorite.districtFullName, favorite.districtName)
-  const heroDescription = getHeroDescription(favorite.label, favoritePath, favorite.alias)
   const statusNotice = getStatusNotice({
     isLoading: weatherQuery.isLoading,
     isFetching: weatherQuery.isFetching,
     hasError: Boolean(weatherQuery.error),
   })
+  const themeStyle = createWeatherThemeStyle(
+    getWeatherVisualTheme(weather?.current.weatherCode),
+    'favorite',
+  )
+  const currentTemperatureLabel = formatTemperature(weather?.current.temperature)
+  const apparentTemperatureLabel = formatTemperature(weather?.current.apparentTemperature)
+  const minTemperatureLabel = formatTemperature(today?.temperatureMin)
+  const maxTemperatureLabel = formatTemperature(today?.temperatureMax)
+  const temperatureRangeLabel = `최고 ${maxTemperatureLabel} / 최저 ${minTemperatureLabel}`
+  const precipitationLabel = today ? `${today.precipitationProbabilityMax}%` : '--'
+  const windSpeedLabel = weather ? `${Math.round(weather.current.windSpeed)} km/h` : '--'
+  const updatedAtLabel = weather ? formatDateTime(weather.current.time, browserTimeZone) : '--'
+  const timeZoneLabel = weather?.location.timezone ?? favorite.timezone
 
   return (
     <main className="weather-night-shell min-h-screen px-4 py-4 text-slate-50 sm:px-5 sm:py-5 md:px-8 lg:px-10">
@@ -87,10 +100,10 @@ export function FavoriteDetailPage() {
       <div className="pointer-events-none absolute bottom-20 right-[12%] h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl" />
 
       <div className="relative mx-auto w-full min-w-0 max-w-[1380px]">
-        <header className="flex flex-col gap-4 py-2 lg:flex-row lg:items-start lg:justify-between">
-          <div>
+        <header className="flex flex-col gap-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
-              className="inline-flex items-center rounded-full border border-white/10 bg-white/8 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-white/12"
+              className="weather-context-pill inline-flex items-center rounded-full px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-white/12"
               aria-label="홈으로 돌아가기"
               to="/"
             >
@@ -98,137 +111,177 @@ export function FavoriteDetailPage() {
             </Link>
           </div>
 
-          {statusNotice ? (
-            <div
-              className={`weather-badge rounded-full border px-4 py-3 text-sm font-medium backdrop-blur-xl ${
-                statusNotice.tone === 'error'
-                  ? 'border-rose-200/25 bg-rose-500/12 text-rose-100'
-                  : 'border-white/10 bg-white/8 text-slate-100'
-              }`}
-            >
-              {statusNotice.label}
-            </div>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {statusNotice ? (
+              <div
+                className={`weather-badge rounded-full border px-4 py-2 text-sm font-medium backdrop-blur-xl ${
+                  statusNotice.tone === 'error'
+                    ? 'border-rose-200/25 bg-rose-500/12 text-rose-100'
+                    : 'weather-accent-pill text-white'
+                }`}
+                style={statusNotice.tone === 'error' ? undefined : themeStyle}
+              >
+                {statusNotice.label}
+              </div>
+            ) : null}
+          </div>
         </header>
 
-        <section className="pb-8 pt-9 text-center sm:pb-12 sm:pt-12 md:pb-16 md:pt-16">
-          <p className="text-sm font-medium text-slate-300">저장된 장소</p>
-          <p className="mx-auto mt-4 max-w-[34rem] text-sm text-slate-400">{favoritePath}</p>
-          <h1 className="mx-auto mt-3 max-w-[12ch] break-keep text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl md:text-7xl">
-            {favorite.alias}
-          </h1>
-          {heroDescription ? (
-            <p className="mx-auto mt-4 max-w-[36rem] text-sm leading-6 text-slate-300 sm:text-base">
-              {heroDescription}
-            </p>
-          ) : null}
-          <p className="mt-4 text-[4.4rem] font-extralight leading-none tracking-[-0.08em] text-white sm:mt-5 sm:text-[6.5rem] md:text-[9rem]">
-            {weather ? `${Math.round(weather.current.temperature)}°` : '--'}
-          </p>
-          <div className="mt-3 flex flex-col items-center gap-3 sm:mt-4">
-            <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-              <span className="text-4xl leading-none text-slate-100 sm:text-5xl">{weatherSymbol}</span>
-              <div className="text-center sm:text-left">
-                <p className="text-xl font-medium text-white sm:text-2xl">{weatherConditionLabel}</p>
-                <p className="mt-1 text-sm text-slate-300 sm:text-base">
-                  체감 온도 {weather ? `${Math.round(weather.current.apparentTemperature)}°` : '--'}
-                </p>
+        <section className="pb-8 pt-6 sm:pb-10 sm:pt-8 md:pb-12" style={themeStyle}>
+          <div className="weather-hero-panel rounded-[1.8rem] px-5 py-6 sm:px-7 sm:py-7 md:px-8 md:py-8">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="weather-accent-pill rounded-full px-3 py-1.5 text-[0.72rem] font-medium text-white">
+                {weatherConditionLabel}
+              </span>
+            </div>
+
+            <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <div className="min-w-0">
+                <h1 className="mt-3 max-w-[12ch] break-keep text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl md:text-6xl">
+                  {favorite.alias}
+                </h1>
+                <p className="mt-3 max-w-3xl text-base text-slate-300">{favorite.label}</p>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <InfoRow
+                    label="체감 온도"
+                    value={apparentTemperatureLabel}
+                    className="weather-soft-panel rounded-[1.25rem] border-white/10 bg-white/8 px-4 py-4"
+                    labelClassName="text-slate-300"
+                    valueClassName="text-xl leading-tight text-white sm:text-2xl"
+                  />
+                  <InfoRow
+                    label="최고 / 최저"
+                    value={temperatureRangeLabel}
+                    className="weather-soft-panel rounded-[1.25rem] border-white/10 bg-white/8 px-4 py-4"
+                    labelClassName="text-slate-300"
+                    valueClassName="text-lg leading-tight text-white sm:text-xl"
+                  />
+                  <InfoRow
+                    label="강수 확률"
+                    value={precipitationLabel}
+                    className="weather-soft-panel rounded-[1.25rem] border-white/10 bg-white/8 px-4 py-4"
+                    labelClassName="text-slate-300"
+                    valueClassName="text-xl leading-tight text-white sm:text-2xl"
+                  />
+                  <InfoRow
+                    label="풍속"
+                    value={windSpeedLabel}
+                    className="weather-soft-panel rounded-[1.25rem] border-white/10 bg-white/8 px-4 py-4"
+                    labelClassName="text-slate-300"
+                    valueClassName="text-lg leading-tight text-white sm:text-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="flex min-w-[180px] flex-col items-center gap-4 text-center lg:items-end lg:text-right">
+                <div className="weather-icon-halo h-18 w-18 sm:h-20 sm:w-20">
+                  <span className="text-4xl leading-none text-white sm:text-5xl">{weatherSymbol}</span>
+                </div>
+                <div>
+                  <p className="font-mono tabular-nums text-[4.8rem] font-light leading-none tracking-[-0.07em] text-white sm:text-[6rem] md:text-[7rem]">
+                    {currentTemperatureLabel}
+                  </p>
+                  <p className="mt-3 text-base font-medium text-slate-200 sm:text-lg">
+                    {temperatureRangeLabel}
+                  </p>
+                </div>
               </div>
             </div>
-            <p className="text-lg font-medium text-slate-200 sm:text-xl">
-              최고 {today ? `${Math.round(today.temperatureMax)}°` : '--'} / 최저{' '}
-              {today ? `${Math.round(today.temperatureMin)}°` : '--'}
-            </p>
-          </div>
 
-          {weatherQuery.error ? (
-            <p className="mx-auto mt-8 max-w-xl rounded-full border border-rose-200/20 bg-rose-500/12 px-5 py-3 text-sm text-rose-100 backdrop-blur-xl">
-              {weatherQuery.error.message}
-            </p>
-          ) : null}
+            {weatherQuery.error ? (
+              <p className="mt-6 max-w-xl rounded-full border border-rose-200/20 bg-rose-500/12 px-5 py-3 text-sm text-rose-100 backdrop-blur-xl">
+                {weatherQuery.error.message}
+              </p>
+            ) : null}
+          </div>
         </section>
 
         <section className="grid w-full min-w-0 gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(340px,0.92fr)] lg:items-start">
-          <div className="min-w-0 space-y-6">
+          <div className="min-w-0 space-y-6" style={themeStyle}>
             <section className="weather-glass-card rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-xs font-medium tracking-[0.2em] text-slate-400">핵심 지표</p>
                   <h2 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                    핵심 날씨 지표
+                    핵심 날씨 요약
                   </h2>
                 </div>
-                <span className="weather-badge rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.7rem] font-medium text-slate-300 whitespace-normal break-keep sm:self-auto sm:text-xs">
-                  {weather?.location.timezone ?? favorite.timezone}
+                <span className="weather-badge weather-accent-pill rounded-full px-3 py-1 text-[0.7rem] font-medium text-white whitespace-normal break-keep sm:self-auto sm:text-xs">
+                  {weatherSymbol} {weatherConditionLabel}
                 </span>
               </div>
 
               <div className="mt-5 grid gap-3 sm:mt-6 sm:grid-cols-3">
                 <MetricCard
                   label="현재 기온"
-                  value={weather ? `${Math.round(weather.current.temperature)}°` : '--'}
+                  value={currentTemperatureLabel}
                   helper={weatherConditionLabel}
                   tone="glass"
-                  className="rounded-[1.35rem] sm:rounded-[1.7rem]"
+                  className="rounded-[1.35rem] border-white/14 sm:rounded-[1.7rem]"
+                  labelClassName="text-slate-200"
+                  helperClassName="text-slate-100"
                 />
                 <MetricCard
                   label="당일 최저"
-                  value={today ? `${Math.round(today.temperatureMin)}°` : '--'}
+                  value={minTemperatureLabel}
                   helper={today ? `${today.date}` : '데이터 대기 중'}
                   tone="glass"
                   className="rounded-[1.35rem] sm:rounded-[1.7rem]"
+                  labelClassName="text-slate-300"
+                  helperClassName="text-slate-200"
                 />
                 <MetricCard
                   label="당일 최고"
-                  value={today ? `${Math.round(today.temperatureMax)}°` : '--'}
-                  helper={weather ? `체감 ${Math.round(weather.current.apparentTemperature)}°` : '데이터 대기 중'}
+                  value={maxTemperatureLabel}
+                  helper={weather ? `체감 ${apparentTemperatureLabel}` : '데이터 대기 중'}
                   tone="glass"
                   className="rounded-[1.35rem] sm:rounded-[1.7rem]"
+                  labelClassName="text-slate-300"
+                  helperClassName="text-slate-200"
                 />
               </div>
             </section>
 
-            <HourlyTemperatureSection
-              dateLabel={today ? `${today.date} 기준` : undefined}
-              hourlyTemperatures={hourlyTemperatures}
-              currentTemperature={weather?.current.temperature}
-              apparentTemperature={weather?.current.apparentTemperature}
-              minTemperature={today?.temperatureMin}
-              maxTemperature={today?.temperatureMax}
-              timeZone={weather?.location.timezone ?? favorite.timezone ?? browserTimeZone}
-            />
+            <div style={themeStyle}>
+              <HourlyTemperatureSection
+                dateLabel={today ? `${today.date} 기준` : undefined}
+                hourlyTemperatures={hourlyTemperatures}
+                currentTemperature={weather?.current.temperature}
+                apparentTemperature={weather?.current.apparentTemperature}
+                minTemperature={today?.temperatureMin}
+                maxTemperature={today?.temperatureMax}
+                timeZone={weather?.location.timezone ?? favorite.timezone ?? browserTimeZone}
+              />
+            </div>
           </div>
 
-          <aside className="weather-glass-card rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7 lg:sticky lg:top-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-medium tracking-[0.2em] text-slate-400">장소 정보</p>
-                <h2 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                  장소 상세 정보
-                </h2>
-              </div>
-              <span className="weather-badge rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.7rem] font-medium text-slate-300 whitespace-normal break-keep sm:self-auto sm:text-xs">
-                저장된 즐겨찾기
-              </span>
+          <aside
+            className="weather-glass-card rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7 lg:sticky lg:top-5"
+            style={themeStyle}
+          >
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                장소 정보
+              </h2>
             </div>
 
             <div className="mt-5 grid gap-3 min-[560px]:grid-cols-2 sm:mt-6 sm:gap-4">
               <InfoRow
-                label="표시 이름"
+                label="이름"
                 value={favorite.alias}
                 className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
                 labelClassName="text-slate-300"
                 valueClassName="text-lg leading-tight text-white sm:text-xl"
               />
               <InfoRow
-                label="위치 라벨"
+                label="위치"
                 value={favorite.label}
                 className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
                 labelClassName="text-slate-300"
                 valueClassName="text-lg leading-tight text-white sm:text-xl"
               />
               <InfoRow
-                label="행정구역 경로"
+                label="행정구역"
                 value={favoritePath}
                 className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
                 labelClassName="text-slate-300"
@@ -243,28 +296,28 @@ export function FavoriteDetailPage() {
               />
               <InfoRow
                 label="시간대"
-                value={weather?.location.timezone ?? favorite.timezone}
+                value={timeZoneLabel}
                 className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
                 labelClassName="text-slate-300"
                 valueClassName="break-all text-lg leading-tight text-white sm:text-xl"
               />
               <InfoRow
                 label="업데이트 시각"
-                value={weather ? formatDateTime(weather.current.time, browserTimeZone) : '--'}
+                value={updatedAtLabel}
                 className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
                 labelClassName="text-slate-300"
                 valueClassName="text-lg leading-tight text-white sm:text-xl"
               />
               <InfoRow
                 label="강수 확률"
-                value={today ? `${today.precipitationProbabilityMax}%` : '--'}
+                value={precipitationLabel}
                 className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
                 labelClassName="text-slate-300"
                 valueClassName="text-lg leading-tight text-white sm:text-xl"
               />
               <InfoRow
                 label="풍속"
-                value={weather ? `${Math.round(weather.current.windSpeed)} km/h` : '--'}
+                value={windSpeedLabel}
                 className="weather-soft-panel rounded-[1.35rem] border-white/10 bg-white/8 px-5 py-4 sm:rounded-[1.7rem] sm:px-6 sm:py-5"
                 labelClassName="text-slate-300"
                 valueClassName="text-lg leading-tight text-white sm:text-xl"
@@ -315,18 +368,6 @@ function formatFavoritePath(districtFullName: string, districtName: string) {
   return path ? path.replaceAll('-', ' · ') : '경로 정보 없음'
 }
 
-function getHeroDescription(label: string, favoritePath: string, alias: string) {
-  const normalizedLabel = normalizeLocationText(label)
-  const normalizedPath = normalizeLocationText(favoritePath)
-  const normalizedAlias = normalizeLocationText(alias)
-
-  if (!normalizedLabel || normalizedLabel === normalizedPath || normalizedLabel === normalizedAlias) {
-    return null
-  }
-
-  return label
-}
-
-function normalizeLocationText(value: string) {
-  return value.replace(/[·.\-\s]/g, '').trim()
+function formatTemperature(value: number | undefined) {
+  return typeof value === 'number' ? `${Math.round(value)}°` : '--'
 }

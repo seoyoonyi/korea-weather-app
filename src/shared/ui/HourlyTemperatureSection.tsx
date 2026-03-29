@@ -26,8 +26,7 @@ export function HourlyTemperatureSection({
     <section className="weather-glass-card min-w-0 rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-7">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-medium tracking-[0.2em] text-slate-400">시간별 예보</p>
-          <h3 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">24시간 기온</h3>
+          <h3 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">24시간 기온</h3>
         </div>
         <p className="text-sm text-slate-400">{dateLabel ?? '예보 준비 중'}</p>
       </div>

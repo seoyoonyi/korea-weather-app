@@ -8,6 +8,7 @@ import { searchDistricts } from '@/entities/district/model/searchDistricts'
 import { useWeatherForecastQuery } from '@/entities/weather/api/useWeatherForecastQuery'
 import { getWeatherConditionLabel } from '@/entities/weather/model/getWeatherConditionLabel'
 import { useFavoriteWeather } from '@/features/favorite/api/useFavoriteWeather'
+import { confirmFavoriteRemoval } from '@/features/favorite/model/confirmFavoriteRemoval'
 import {
   FAVORITES_LIMIT,
   useFavorites,
@@ -175,13 +176,6 @@ export function useHomePageModel() {
     selectedDistrictCoordinatesError: selectedDistrictCoordinatesQuery.error,
     isResolvingSelectedDistrict: selectedDistrictCoordinatesQuery.isLoading,
   })
-  const favoriteActionMessage = getFavoriteActionMessage({
-    selectedDistrict,
-    selectedFavorite,
-    isFavoriteLimitReached,
-    selectedDistrictCoordinates,
-    selectedDistrictCoordinatesLoading: selectedDistrictCoordinatesQuery.isLoading,
-  })
   const favoriteButtonState = getFavoriteButtonState({
     selectedDistrict,
     selectedFavorite,
@@ -194,7 +188,6 @@ export function useHomePageModel() {
     : '데이터 대기 중'
   const weatherSymbol = activeWeather ? getWeatherSymbol(activeWeather.current.weatherCode) : '○'
   const heroLocationContent = getHeroLocationContent(activeLocationLabel)
-  const heroEyebrow = isSearchingPlace ? '검색한 장소' : '현재 위치'
   const weatherMessage = getWeatherMessage({
     isSearchingPlace,
     selectedDistrict,
@@ -208,6 +201,7 @@ export function useHomePageModel() {
   const activeUpdatedAt = activeWeather
     ? formatDateTime(activeWeather.current.time, browserTimeZone)
     : '--'
+  const isActiveWeatherLoading = !activeWeather && !activeWeatherQuery.error
 
   const handleSearchKeywordChange = (nextValue: string) => {
     setSearchKeyword(nextValue)
@@ -240,6 +234,10 @@ export function useHomePageModel() {
 
   const handleFavoriteAction = () => {
     if (selectedFavorite) {
+      if (!confirmFavoriteRemoval(selectedFavorite)) {
+        return
+      }
+
       removeFavorite(selectedFavorite.id)
       return
     }
@@ -272,13 +270,12 @@ export function useHomePageModel() {
     isSearchingPlace,
     selectedFavorite,
     favoriteButtonState,
-    favoriteActionMessage,
-    heroEyebrow,
     heroLocationContent,
     activeWeather,
     activeLocationLabel,
     activeTimeZone,
     activeUpdatedAt,
+    isActiveWeatherLoading,
     today,
     hourlyTemperatures,
     weatherConditionLabel,
@@ -349,42 +346,6 @@ function getSearchStatusMessage({
   }
 
   return null
-}
-
-function getFavoriteActionMessage({
-  selectedDistrict,
-  selectedFavorite,
-  isFavoriteLimitReached,
-  selectedDistrictCoordinates,
-  selectedDistrictCoordinatesLoading,
-}: {
-  selectedDistrict: DistrictNode | null
-  selectedFavorite: { id: string } | undefined
-  isFavoriteLimitReached: boolean
-  selectedDistrictCoordinates: DistrictCoords | null | undefined
-  selectedDistrictCoordinatesLoading: boolean
-}) {
-  if (!selectedDistrict) {
-    return '검색으로 장소를 선택하면 즐겨찾기에 저장할 수 있습니다.'
-  }
-
-  if (selectedFavorite) {
-    return '이미 즐겨찾기에 저장된 장소입니다.'
-  }
-
-  if (selectedDistrictCoordinatesLoading) {
-    return '선택한 장소의 좌표를 확인하는 중입니다.'
-  }
-
-  if (!selectedDistrictCoordinates) {
-    return '선택한 장소는 즐겨찾기에 저장할 수 없습니다.'
-  }
-
-  if (isFavoriteLimitReached) {
-    return '즐겨찾기는 최대 6개까지 저장할 수 있습니다.'
-  }
-
-  return '선택한 장소를 즐겨찾기에 저장할 수 있습니다.'
 }
 
 function getFavoriteButtonState({
